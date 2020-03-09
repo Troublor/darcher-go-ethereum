@@ -18,6 +18,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/ethMonitor"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -78,8 +79,19 @@ JavaScript API. See https://github.com/ethereum/go-ethereum/wiki/JavaScript-Cons
 func localConsole(ctx *cli.Context) error {
 	// Create and start the node based on the CLI flags
 	prepare(ctx)
-	node := makeFullNode(ctx)
+	// TODO troublor modify
+	var role ethMonitor.Role
+	if ctx.GlobalBool(utils.TalkerFlag.Name) {
+		role = ethMonitor.TALKER
+	} else {
+		role = ethMonitor.DOER
+	}
+	monitor := ethMonitor.NewMonitor(role)
+	node := makeFullNodeWithMonitor(ctx, monitor)
 	startNode(ctx, node)
+	monitor.NotifyNodeStart(node)
+	//node := makeFullNode(ctx)
+	//startNode(ctx, node)
 	defer node.Close()
 
 	// Attach to the newly started node and start the JavaScript console

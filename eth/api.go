@@ -102,6 +102,17 @@ func NewPrivateMinerAPI(e *Ethereum) *PrivateMinerAPI {
 	return &PrivateMinerAPI{e: e}
 }
 
+// TODO troublor modify
+func (api *PrivateMinerAPI) MineBlocks(budget uint64) (string, error) {
+	err := api.e.miner.Monitor.MineBlocks(int64(budget))
+	return fmt.Sprintf("mine %d blocks", budget), err
+}
+
+func (api *PrivateMinerAPI) MineTx(txHash common.Hash) (string, error) {
+	err := api.e.miner.Monitor.MineTx(txHash)
+	return fmt.Sprintf("mine transaction %s", txHash.Hex()), err
+}
+
 // Start starts the miner with the given number of threads. If threads is nil,
 // the number of workers started is equal to the number of logical CPUs that are
 // usable by this process. If mining is already running, this method adjust the

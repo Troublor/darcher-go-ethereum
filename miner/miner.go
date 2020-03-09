@@ -19,6 +19,7 @@ package miner
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/ethMonitor"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -64,6 +65,9 @@ type Miner struct {
 
 	canStart    int32 // can start indicates whether we can start the mining operation
 	shouldStart int32 // should start indicates whether we should start after sync
+
+	// TODO troublor modify
+	Monitor *ethMonitor.Monitor
 }
 
 func New(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine, isLocalBlock func(block *types.Block) bool) *Miner {
@@ -76,6 +80,24 @@ func New(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *even
 		canStart: 1,
 	}
 	go miner.update()
+
+	return miner
+}
+
+// TODO troublor modify
+func NewMinerWithMonitor(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine, isLocalBlock func(block *types.Block) bool, monitor *ethMonitor.Monitor) *Miner {
+	miner := &Miner{
+		eth:      eth,
+		mux:      mux,
+		engine:   engine,
+		exitCh:   make(chan struct{}),
+		worker:   NewWorkerWithMonitor(config, chainConfig, engine, eth, mux, isLocalBlock, true, monitor),
+		canStart: 1,
+		Monitor:  monitor,
+	}
+	go miner.update()
+
+	monitor.SetMiner(miner)
 
 	return miner
 }

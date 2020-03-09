@@ -21,6 +21,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/ethMonitor"
 	"io"
 	"io/ioutil"
 	"math/big"
@@ -137,6 +138,11 @@ func printHelp(out io.Writer, templ string, data interface{}) {
 // are the same for all commands.
 
 var (
+	// TODO troublor modify
+	TalkerFlag = cli.BoolFlag{
+		Name:  "talker",
+		Usage: "run as talker node",
+	}
 	// General settings
 	DataDirFlag = DirectoryFlag{
 		Name:  "datadir",
@@ -1413,6 +1419,11 @@ func SetShhConfig(ctx *cli.Context, stack *node.Node, cfg *whisper.Config) {
 
 // SetEthConfig applies eth-related command line flags to the config.
 func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
+	// TODO troublor modify
+	if ctx.GlobalBool(FakePoWFlag.Name) {
+		cfg.Ethash.PowMode = ethash.ModeFake
+	}
+
 	// Avoid conflicting network flags
 	CheckExclusive(ctx, DeveloperFlag, TestnetFlag, RinkebyFlag, GoerliFlag)
 	CheckExclusive(ctx, LightLegacyServFlag, LightServeFlag, SyncModeFlag, "light")
@@ -1534,6 +1545,31 @@ func RegisterEthService(stack *node.Node, cfg *eth.Config) {
 	} else {
 		err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
 			fullNode, err := eth.New(ctx, cfg)
+			if fullNode != nil && cfg.LightServ > 0 {
+				ls, _ := les.NewLesServer(fullNode, cfg)
+				fullNode.AddLesServer(ls)
+			}
+			return fullNode, err
+		})
+	}
+	if err != nil {
+		Fatalf("Failed to register the Ethereum service: %v", err)
+	}
+}
+
+// TODO troublor modify
+// RegisterEthService adds an Ethereum client to the stack.
+func RegisterEthServiceWithMonitor(stack *node.Node, cfg *eth.Config, monitor *ethMonitor.Monitor) {
+	var err error
+	if cfg.SyncMode == downloader.LightSync {
+		err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
+			return les.New(ctx, cfg)
+		})
+	} else {
+		err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
+			fullNode, err := eth.NewWithMonitor(ctx, cfg, monitor)
+			// at this point, eth has finished initialization
+			monitor.Start()
 			if fullNode != nil && cfg.LightServ > 0 {
 				ls, _ := les.NewLesServer(fullNode, cfg)
 				fullNode.AddLesServer(ls)

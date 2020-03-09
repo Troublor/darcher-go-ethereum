@@ -561,10 +561,23 @@ web3._extend({
 });
 `
 
+// TODO troublor modify
 const MinerJs = `
 web3._extend({
 	property: 'miner',
 	methods: [
+		new web3._extend.Method({
+			name: 'mineBlocks',
+			call: 'miner_mineBlocks',
+			params: 1,
+			inputFormatter: [null]
+		}),
+		new web3._extend.Method({
+			name: 'mineTx',
+			call: 'miner_mineTx',
+			params: 1,
+			inputFormatter: [null]
+		}),
 		new web3._extend.Method({
 			name: 'start',
 			call: 'miner_start',

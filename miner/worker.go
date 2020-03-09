@@ -19,6 +19,7 @@ package miner
 import (
 	"bytes"
 	"errors"
+	"github.com/ethereum/go-ethereum/ethMonitor"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -177,6 +178,9 @@ type worker struct {
 	skipSealHook func(*task) bool                   // Method to decide whether skipping the sealing.
 	fullTaskHook func()                             // Method to call before pushing the full sealing task.
 	resubmitHook func(time.Duration, time.Duration) // Method to call upon updating resubmitting interval.
+
+	// TODO troublor modify
+	monitor *ethMonitor.Monitor
 }
 
 func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, isLocalBlock func(*types.Block) bool, init bool) *worker {
@@ -226,6 +230,13 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 		worker.startCh <- struct{}{}
 	}
 	return worker
+}
+
+// TODO troublor modify
+func NewWorkerWithMonitor(config *Config, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, isLocalBlock func(*types.Block) bool, init bool, monitor *ethMonitor.Monitor) *worker {
+	w := newWorker(config, chainConfig, engine, eth, mux, isLocalBlock, init)
+	w.monitor = monitor
+	return w
 }
 
 // setEtherbase sets the etherbase used to initialize the block coinbase field.
@@ -553,6 +564,13 @@ func (w *worker) resultLoop() {
 	for {
 		select {
 		case block := <-w.resultCh:
+			// TODO troublor modify
+			// short circuit when mining target has already been achieved
+			if !w.monitor.GetCurrent().ShouldContinue() {
+				w.monitor.StopMining()
+				log.Info("Mining target achieved, stop mining")
+				continue
+			}
 			// Short circuit when receiving empty result.
 			if block == nil {
 				continue
@@ -834,11 +852,12 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 		timestamp = int64(parent.Time() + 1)
 	}
 	// this will ensure we're not going off too far in the future
-	if now := time.Now().Unix(); timestamp > now+1 {
-		wait := time.Duration(timestamp-now) * time.Second
-		log.Info("Mining too far in the future", "wait", common.PrettyDuration(wait))
-		time.Sleep(wait)
-	}
+	// TODO troublor modify
+	//if now := time.Now().Unix(); timestamp > now+1 {
+	//	wait := time.Duration(timestamp-now) * time.Second
+	//	log.Info("Mining too far in the future", "wait", common.PrettyDuration(wait))
+	//	time.Sleep(wait)
+	//}
 
 	num := parent.Number()
 	header := &types.Header{
@@ -959,6 +978,15 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 		*receipts[i] = *l
 	}
 	s := w.current.state.Copy()
+	// TODO troublor modify
+	if w.isRunning() {
+		if w.monitor.GetCurrent().ShouldContinue() {
+			//w.current.header.Difficulty = w.monitor.GetDifficulty()
+		} else {
+			w.monitor.StopMining()
+			log.Info("Mining target achieved, stop mining")
+		}
+	}
 	block, err := w.engine.FinalizeAndAssemble(w.chain, w.current.header, s, w.current.txs, uncles, w.current.receipts)
 	if err != nil {
 		return err

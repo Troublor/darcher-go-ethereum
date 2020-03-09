@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/ethMonitor"
 	"math/big"
 	"os"
 	"reflect"
@@ -143,6 +144,45 @@ func enableWhisper(ctx *cli.Context) bool {
 		}
 	}
 	return false
+}
+
+func makeFullNodeWithMonitor(ctx *cli.Context, monitor *ethMonitor.Monitor) *node.Node {
+	stack, cfg := makeConfigNode(ctx)
+	if ctx.GlobalIsSet(utils.OverrideIstanbulFlag.Name) {
+		cfg.Eth.OverrideIstanbul = new(big.Int).SetUint64(ctx.GlobalUint64(utils.OverrideIstanbulFlag.Name))
+	}
+	if ctx.GlobalIsSet(utils.OverrideMuirGlacierFlag.Name) {
+		cfg.Eth.OverrideMuirGlacier = new(big.Int).SetUint64(ctx.GlobalUint64(utils.OverrideMuirGlacierFlag.Name))
+	}
+	// TODO troublor modify
+	monitor.SetNode(stack)
+	utils.RegisterEthServiceWithMonitor(stack, &cfg.Eth, monitor)
+	//utils.RegisterEthService(stack, &cfg.Eth)
+
+	// Whisper must be explicitly enabled by specifying at least 1 whisper flag or in dev mode
+	shhEnabled := enableWhisper(ctx)
+	shhAutoEnabled := !ctx.GlobalIsSet(utils.WhisperEnabledFlag.Name) && ctx.GlobalIsSet(utils.DeveloperFlag.Name)
+	if shhEnabled || shhAutoEnabled {
+		if ctx.GlobalIsSet(utils.WhisperMaxMessageSizeFlag.Name) {
+			cfg.Shh.MaxMessageSize = uint32(ctx.Int(utils.WhisperMaxMessageSizeFlag.Name))
+		}
+		if ctx.GlobalIsSet(utils.WhisperMinPOWFlag.Name) {
+			cfg.Shh.MinimumAcceptedPOW = ctx.Float64(utils.WhisperMinPOWFlag.Name)
+		}
+		if ctx.GlobalIsSet(utils.WhisperRestrictConnectionBetweenLightClientsFlag.Name) {
+			cfg.Shh.RestrictConnectionBetweenLightClients = true
+		}
+		utils.RegisterShhService(stack, &cfg.Shh)
+	}
+	// Configure GraphQL if requested
+	if ctx.GlobalIsSet(utils.GraphQLEnabledFlag.Name) {
+		utils.RegisterGraphQLService(stack, cfg.Node.GraphQLEndpoint(), cfg.Node.GraphQLCors, cfg.Node.GraphQLVirtualHosts, cfg.Node.HTTPTimeouts)
+	}
+	// Add the Ethereum Stats daemon if requested.
+	if cfg.Ethstats.URL != "" {
+		utils.RegisterEthStatsService(stack, cfg.Ethstats.URL)
+	}
+	return stack
 }
 
 func makeFullNode(ctx *cli.Context) *node.Node {

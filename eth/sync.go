@@ -145,9 +145,11 @@ func (pm *ProtocolManager) syncer() {
 		select {
 		case <-pm.newPeerCh:
 			// Make sure we have peers to select from, then sync
-			if pm.peers.Len() < minDesiredPeerCount {
-				break
-			}
+			// TODO troublor modify
+			// sync without waiting for enough peers
+			//if pm.peers.Len() < minDesiredPeerCount {
+			//	break
+			//}
 			go pm.synchronise(pm.peers.BestPeer())
 
 		case <-forceSync.C:
