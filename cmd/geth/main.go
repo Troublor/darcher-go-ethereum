@@ -59,6 +59,8 @@ var (
 	nodeFlags = []cli.Flag{
 		// TODO troublor modify
 		utils.TalkerFlag,
+		// TODO troublor modify
+		utils.MonitorPort,
 		utils.IdentityFlag,
 		utils.UnlockedAccountFlag,
 		utils.PasswordFileFlag,

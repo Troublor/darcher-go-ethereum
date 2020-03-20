@@ -143,6 +143,12 @@ var (
 		Name:  "talker",
 		Usage: "run as talker node",
 	}
+	// TODO troublor modify
+	MonitorPort = cli.IntFlag{
+		Name:  "monitorport",
+		Usage: "the port of ethMonitor server",
+		Value: 1234,
+	}
 	// General settings
 	DataDirFlag = DirectoryFlag{
 		Name:  "datadir",

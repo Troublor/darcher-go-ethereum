@@ -86,7 +86,8 @@ func localConsole(ctx *cli.Context) error {
 	} else {
 		role = ethMonitor.DOER
 	}
-	monitor := ethMonitor.NewMonitor(role)
+	monitorPort := ctx.GlobalInt(utils.MonitorPort.Name)
+	monitor := ethMonitor.NewMonitor(role, monitorPort)
 	node := makeFullNodeWithMonitor(ctx, monitor)
 	startNode(ctx, node)
 	monitor.NotifyNodeStart(node)

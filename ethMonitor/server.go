@@ -10,11 +10,6 @@ import (
 	"net/rpc"
 )
 
-const (
-	portDoer   = 2234
-	portTalker = 2235
-)
-
 // RPC Methods
 
 func (m *Monitor) MineBlocksRPC(msg *MineBlocksMsg, reply *Reply) (e error) {
@@ -96,14 +91,14 @@ func (m *Monitor) RevertTxRPC(msg *RevertTxMsg, reply *Reply) (e error) {
 func (m *Monitor) CheckTxInPoolRPC(msg *CheckTxInPoolMsg, reply *CheckTxInPoolReply) (e error) {
 	txHash := msg.Hash
 	reply.InPool = inTxPool(common.HexToHash(txHash), m.eth.TxPool())
-	return
+	return nil
 }
 
-//func (m *Monitor) ReExecuteTx(arg *Hash, reply *Reply) (e error) {
+//func (monitor *Monitor) ReExecuteTx(arg *Hash, reply *Reply) (e error) {
 //
 //}
 
-//func (m *Monitor) ConfirmTx(arg *TxHashAndInt, reply *Reply) (e error) {
+//func (monitor *Monitor) ConfirmTx(arg *TxHashAndInt, reply *Reply) (e error) {
 //
 //}
 

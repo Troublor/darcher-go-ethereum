@@ -573,6 +573,24 @@ web3._extend({
 			inputFormatter: [null]
 		}),
 		new web3._extend.Method({
+			name: 'mineBlockInterval',
+			call: 'miner_mineBlockInterval',
+			params: 1,
+			inputFormatter: [null]
+		}),
+		new web3._extend.Method({
+			name: 'stopMiningBlockInterval',
+			call: 'miner_stopMiningBlockInterval'
+		}),
+		new web3._extend.Method({
+			name: 'mineWhenTx',
+			call: 'miner_mineWhenTx',
+		}),
+		new web3._extend.Method({
+			name: 'stopMiningWhenTx',
+			call: 'miner_stopMiningWhenTx'
+		}),
+		new web3._extend.Method({
 			name: 'mineTx',
 			call: 'miner_mineTx',
 			params: 1,

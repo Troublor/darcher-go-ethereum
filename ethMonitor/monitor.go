@@ -9,18 +9,18 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
+	"github.com/phayes/freeport"
 	"math/big"
 	"net/rpc"
 	"runtime"
 	"strings"
 )
 
-const ControllerServerPort = 1234
-
 type Monitor struct {
-	role       Role
-	client     *rpc.Client
-	serverPort int
+	role        Role
+	client      *rpc.Client
+	serverPort  int
+	monitorPort int
 
 	// context fields
 	eth   Ethereum
@@ -28,22 +28,27 @@ type Monitor struct {
 	miner Stoppable
 
 	current Task
+
+	// other useful fields
+	intervalTask  *IntervalTask
+	txMonitorTask *TxMonitorTask
 }
 
-func NewMonitor(role Role) *Monitor {
+func NewMonitor(role Role, monitorPort int) *Monitor {
 	log.Info("Running as " + strings.ToUpper(fmt.Sprintf("%s", role)) + " node")
 	var port int
 	switch role {
 	case DOER:
-		port = portDoer
+		port, _ = freeport.GetFreePort()
 	case TALKER:
-		port = portTalker
+		port, _ = freeport.GetFreePort()
 	default:
 		log.Error("Invalid Role", "role", role)
 	}
 	return &Monitor{
-		role:       role,
-		serverPort: port,
+		role:        role,
+		serverPort:  port,
+		monitorPort: monitorPort,
 	}
 }
 
@@ -60,6 +65,13 @@ func (m *Monitor) SetMiner(miner Stoppable) {
 }
 
 func (m *Monitor) setCurrent(monitor Task) {
+	// should stop persistent tasks (e.g TxMonitorTask, IntervalTask)
+	if _, ok := monitor.(*TxMonitorTask); !ok && m.txMonitorTask != nil {
+		m.StopMiningWhenTx()
+	}
+	if _, ok := monitor.(*IntervalTask); !ok && m.intervalTask != nil {
+		m.StopMiningBlockInterval()
+	}
 	m.current = monitor
 }
 
@@ -73,7 +85,7 @@ func (m *Monitor) isInitialized() bool {
 
 func (m *Monitor) Start() {
 	// connect to rpc server
-	client, err := rpc.DialHTTP("tcp", fmt.Sprintf("127.0.0.1:%d", ControllerServerPort))
+	client, err := rpc.DialHTTP("tcp", fmt.Sprintf("127.0.0.1:%d", m.monitorPort))
 	if err != nil {
 		log.Error("failed to connect to rpc server", "err", err.Error())
 		return
@@ -131,7 +143,43 @@ func (m *Monitor) MineBlocks(count int64) error {
 	return nil
 }
 
-// mine until the transaction is executed
+// mine block with time interval
+func (m *Monitor) MineBlockInterval(interval uint) error {
+	m.intervalTask = NewIntervalTask(m.eth, interval)
+	m.setCurrent(m.intervalTask)
+	err := m.StartMining()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// stop mining block with time interval
+func (m *Monitor) StopMiningBlockInterval() {
+	if m.intervalTask != nil {
+		m.intervalTask.Stop()
+		m.intervalTask = nil
+	}
+}
+
+func (m *Monitor) MineWhenTx() error {
+	m.txMonitorTask = NewTxMonitorTask(m.eth.TxPool())
+	m.setCurrent(m.txMonitorTask)
+	err := m.StartMining()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *Monitor) StopMiningWhenTx() {
+	if m.txMonitorTask != nil {
+		m.txMonitorTask.Stop()
+		m.txMonitorTask = nil
+	}
+}
+
+// mine a certain tx, stop if tx does not exist
 func (m *Monitor) MineTx(txHash common.Hash) error {
 	if tx, _, _, _ := rawdb.ReadTransaction(m.eth.ChainDb(), txHash); tx != nil {
 		// the tx has already been executed/mined
