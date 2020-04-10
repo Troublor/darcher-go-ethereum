@@ -27,6 +27,7 @@ func (m *BudgetTask) ShouldContinue() bool {
 }
 
 // IntervalTask is used to repeatedly mine blocks with time interval
+// TODO concurrency bug: mining process may deadlock when there are many concurrent txs
 type IntervalTask struct {
 	eth      Ethereum
 	interval uint
