@@ -29,8 +29,8 @@ import (
 )
 
 const (
-	forceSyncCycle      = 10 * time.Second // Time interval to force syncs, even if few peers are available
-	minDesiredPeerCount = 5                // Amount of peers desired to start syncing
+	forceSyncCycle      = 1 * time.Second // Time interval to force syncs, even if few peers are available
+	minDesiredPeerCount = 5               // Amount of peers desired to start syncing
 
 	// This is the target size for the packs of transactions sent by txsyncLoop.
 	// A pack can get larger than this if a single transactions exceeds this size.
@@ -152,6 +152,7 @@ func (pm *ProtocolManager) syncer() {
 			//}
 			go pm.synchronise(pm.peers.BestPeer())
 
+		// TODO troublor modify, remove forceSync
 		case <-forceSync.C:
 			// Force a sync even if not enough peers are present
 			go pm.synchronise(pm.peers.BestPeer())
@@ -215,4 +216,9 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		// more reliably update peers or the local TD state.
 		go pm.BroadcastBlock(head, false)
 	}
+}
+
+// TODO troublor modify: expose synchronise(peer *peer)
+func (pm *ProtocolManager) Synchronise() {
+	go pm.synchronise(pm.peers.BestPeer())
 }

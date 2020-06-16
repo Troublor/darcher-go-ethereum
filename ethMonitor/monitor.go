@@ -26,12 +26,16 @@ type Monitor struct {
 	eth   Ethereum
 	node  Node
 	miner Stoppable
+	pm    ProtocolManager
 
-	current Task
+	currentTask Task
 
 	// other useful fields
 	intervalTask  *IntervalTask
 	txMonitorTask *TxMonitorTask
+
+	// tx scheduler to control the SubmitTransaction JSON RPC
+	txScheduler *TxScheduler
 }
 
 func NewMonitor(role Role, monitorPort int) *Monitor {
@@ -49,6 +53,7 @@ func NewMonitor(role Role, monitorPort int) *Monitor {
 		role:        role,
 		serverPort:  port,
 		monitorPort: monitorPort,
+		txScheduler: NewTxScheduler(),
 	}
 }
 
@@ -64,23 +69,58 @@ func (m *Monitor) SetMiner(miner Stoppable) {
 	m.miner = miner
 }
 
-func (m *Monitor) setCurrent(monitor Task) {
-	// should stop persistent tasks (e.g TxMonitorTask, IntervalTask)
-	if _, ok := monitor.(*TxMonitorTask); !ok && m.txMonitorTask != nil {
-		m.StopMiningWhenTx()
-	}
-	if _, ok := monitor.(*IntervalTask); !ok && m.intervalTask != nil {
-		m.StopMiningBlockInterval()
-	}
-	m.current = monitor
+func (m *Monitor) SetProtocolManager(pm ProtocolManager) {
+	m.pm = pm
 }
 
-func (m *Monitor) GetCurrent() Task {
-	return m.current
+func (m *Monitor) setCurrent(task Task) {
+	// should stop persistent tasks (e.g TxMonitorTask, IntervalTask)
+	if _, ok := task.(*TxMonitorTask); !ok && m.txMonitorTask != nil {
+		m.StopMiningWhenTx()
+	}
+	if _, ok := task.(*IntervalTask); !ok && m.intervalTask != nil {
+		m.StopMiningBlockInterval()
+	}
+	m.currentTask = task
+}
+
+func (m *Monitor) GetCurrentTask() Task {
+	return m.currentTask
+}
+
+func (m *Monitor) GetTxScheduler() *TxScheduler {
+	return m.txScheduler
 }
 
 func (m *Monitor) isInitialized() bool {
 	return m.eth != nil && m.node != nil && m.miner != nil
+}
+
+func (m *Monitor) IsTxAllowed(hash common.Hash) bool {
+	if m.currentTask == nil {
+		return false
+	}
+	if m.role == TALKER {
+		return false
+	}
+	switch m.currentTask.(type) {
+	case *TxMonitorTask:
+		return true
+	case *BudgetTask:
+		return true
+	case *IntervalTask:
+		return true
+	case *TdTask:
+		return true
+	case *TxExecuteTask:
+		return m.currentTask.(*TxExecuteTask).targetTransaction.Hash() == hash
+	case *BudgetWithoutTxTask:
+		return false
+	case *BudgetExceptTxTask:
+		return m.currentTask.(*BudgetExceptTxTask).txHash != hash.String()
+	default:
+		return false
+	}
 }
 
 func (m *Monitor) Start() {
@@ -135,6 +175,26 @@ Mining Utilities
 // mine until certain amount of blocks
 func (m *Monitor) MineBlocks(count int64) error {
 	task := NewBudgetTask(m.eth, count)
+	m.setCurrent(task)
+	err := m.StartMining()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *Monitor) MineBlocksWithoutTx(count int64) error {
+	task := NewBudgetWithoutTxTask(m.eth, count)
+	m.setCurrent(task)
+	err := m.StartMining()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *Monitor) MineBlocksExceptTx(count int64, txHash string) error {
+	task := NewBudgetExceptTxTask(m.eth, count, txHash)
 	m.setCurrent(task)
 	err := m.StartMining()
 	if err != nil {

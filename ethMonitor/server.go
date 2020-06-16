@@ -20,6 +20,22 @@ func (m *Monitor) MineBlocksRPC(msg *MineBlocksMsg, reply *Reply) (e error) {
 	return
 }
 
+func (m *Monitor) MineBlocksWithoutTxRPC(msg *MineBlocksMsg, reply *Reply) (e error) {
+	err := m.MineBlocksWithoutTx(int64(msg.Count))
+	if err != nil {
+		reply.Err = fmt.Errorf("mine blocks error: %s", err.Error())
+	}
+	return
+}
+
+func (m *Monitor) MineBlocksExceptTxRPC(msg *MineBlocksExceptTxMsg, reply *Reply) (e error) {
+	err := m.MineBlocksExceptTx(int64(msg.Count), msg.TxHash)
+	if err != nil {
+		reply.Err = fmt.Errorf("mine blocks error: %s", err.Error())
+	}
+	return
+}
+
 func (m *Monitor) MineTdRPC(msg *MineTdMsg, reply *Reply) (e error) {
 	err := m.MineTd(big.NewInt(int64(msg.Td)))
 	if err != nil {
@@ -92,6 +108,11 @@ func (m *Monitor) CheckTxInPoolRPC(msg *CheckTxInPoolMsg, reply *CheckTxInPoolRe
 	txHash := msg.Hash
 	reply.InPool = inTxPool(common.HexToHash(txHash), m.eth.TxPool())
 	return nil
+}
+
+func (m *Monitor) ScheduleTxRPC(msg *ScheduleTxMsg, reply *Reply) (e error) {
+	m.txScheduler.ScheduleTx(msg.Hash)
+	return
 }
 
 //func (monitor *Monitor) ReExecuteTx(arg *Hash, reply *Reply) (e error) {

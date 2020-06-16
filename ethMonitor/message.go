@@ -63,6 +63,11 @@ type MineBlocksMsg struct {
 	Count uint64
 }
 
+type MineBlocksExceptTxMsg struct {
+	Count  uint64
+	TxHash string
+}
+
 type MineTdMsg struct {
 	Td uint64
 }
@@ -86,4 +91,8 @@ type CheckTxInPoolMsg struct {
 type CheckTxInPoolReply struct {
 	Reply
 	InPool bool
+}
+
+type ScheduleTxMsg struct {
+	Hash string
 }

@@ -26,6 +26,42 @@ func (m *BudgetTask) ShouldContinue() bool {
 	return m.eth.BlockChain().CurrentBlock().Number().Cmp(m.targetBlockNumber) < 0
 }
 
+// BudgetTask is used to control miner to mine according to a budget
+type BudgetWithoutTxTask struct {
+	eth               Ethereum
+	targetBlockNumber *big.Int
+}
+
+func NewBudgetWithoutTxTask(eth Ethereum, budget int64) *BudgetWithoutTxTask {
+	return &BudgetWithoutTxTask{
+		eth:               eth,
+		targetBlockNumber: big.NewInt(0).Add(eth.BlockChain().CurrentBlock().Number(), big.NewInt(budget)),
+	}
+}
+
+func (m *BudgetWithoutTxTask) ShouldContinue() bool {
+	return m.eth.BlockChain().CurrentBlock().Number().Cmp(m.targetBlockNumber) < 0
+}
+
+// BudgetTask is used to control miner to mine according to a budget
+type BudgetExceptTxTask struct {
+	eth               Ethereum
+	targetBlockNumber *big.Int
+	txHash            string
+}
+
+func NewBudgetExceptTxTask(eth Ethereum, budget int64, txHash string) *BudgetExceptTxTask {
+	return &BudgetExceptTxTask{
+		eth:               eth,
+		targetBlockNumber: big.NewInt(0).Add(eth.BlockChain().CurrentBlock().Number(), big.NewInt(budget)),
+		txHash:            txHash,
+	}
+}
+
+func (m *BudgetExceptTxTask) ShouldContinue() bool {
+	return m.eth.BlockChain().CurrentBlock().Number().Cmp(m.targetBlockNumber) < 0
+}
+
 // IntervalTask is used to repeatedly mine blocks with time interval
 // TODO concurrency bug: mining process may deadlock when there are many concurrent txs
 type IntervalTask struct {

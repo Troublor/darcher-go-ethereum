@@ -1442,6 +1442,17 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 	return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
 }
 
+// TODO troublor modify
+type TxScheduler interface {
+	WaitForTurn(hash string)
+}
+
+var txScheduler TxScheduler
+
+func SetTxScheduler(s TxScheduler) {
+	txScheduler = s
+}
+
 // SubmitTransaction is a helper function that submits tx to txPool and logs a message.
 func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (common.Hash, error) {
 	if err := b.SendTx(ctx, tx); err != nil {
@@ -1458,6 +1469,10 @@ func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 	} else {
 		log.Info("Submitted transaction", "fullhash", tx.Hash().Hex(), "recipient", tx.To())
 	}
+	// TODO troublor modify
+	// intercept here when tx is not allowed to traverse yet
+	txScheduler.WaitForTurn(tx.Hash().String())
+
 	return tx.Hash(), nil
 }
 
@@ -1641,6 +1656,11 @@ func (s *PublicTransactionPoolAPI) Resend(ctx context.Context, sendArgs SendTxAr
 			if err = s.b.SendTx(ctx, signedTx); err != nil {
 				return common.Hash{}, err
 			}
+
+			// TODO troublor modify
+			// intercept the transaction resend just as what we do in SubmitTransaction
+			txScheduler.WaitForTurn(signedTx.Hash().String())
+
 			return signedTx.Hash(), nil
 		}
 	}

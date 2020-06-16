@@ -326,8 +326,12 @@ func NewWithMonitor(ctx *node.ServiceContext, config *Config, monitor *ethMonito
 		return nil, err
 	}
 	monitor.SetEth(eth)
+	monitor.SetProtocolManager(eth.protocolManager)
 	eth.miner = miner.NewMinerWithMonitor(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock, monitor)
 	eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData))
+
+	// feed the monitor.txScheduler to internal/ethapi
+	ethapi.SetTxScheduler(monitor.GetTxScheduler())
 
 	eth.APIBackend = &EthAPIBackend{ctx.ExtRPCEnabled(), eth, nil}
 	gpoParams := config.GPO

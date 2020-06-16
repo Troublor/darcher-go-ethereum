@@ -25,3 +25,7 @@ type Stoppable interface {
 type Task interface {
 	ShouldContinue() bool
 }
+
+type ProtocolManager interface {
+	Synchronise()
+}

@@ -566,7 +566,7 @@ func (w *worker) resultLoop() {
 		case block := <-w.resultCh:
 			// TODO troublor modify
 			// short circuit when mining target has already been achieved
-			if !w.monitor.GetCurrent().ShouldContinue() {
+			if !w.monitor.GetCurrentTask().ShouldContinue() {
 				w.monitor.StopMining()
 				log.Info("Mining target achieved, stop mining")
 				continue
@@ -728,6 +728,7 @@ func (w *worker) commitTransaction(tx *types.Transaction, coinbase common.Addres
 }
 
 func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coinbase common.Address, interrupt *int32) bool {
+	log.Info("commit txs")
 	// Short circuit if current is nil
 	if w.current == nil {
 		return true
@@ -770,6 +771,13 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 		if tx == nil {
 			break
 		}
+
+		// TODO troublor modify: only execute allowed tx
+		if !w.monitor.IsTxAllowed(tx.Hash()) {
+			txs.Pop()
+			continue
+		}
+
 		// Error may be ignored here. The error has already been checked
 		// during transaction acceptance is the transaction pool.
 		//
@@ -980,7 +988,7 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 	s := w.current.state.Copy()
 	// TODO troublor modify
 	if w.isRunning() {
-		if w.monitor.GetCurrent().ShouldContinue() {
+		if w.monitor.GetCurrentTask().ShouldContinue() {
 			//w.current.header.Difficulty = w.monitor.GetDifficulty()
 		} else {
 			w.monitor.StopMining()
