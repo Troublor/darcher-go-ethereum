@@ -147,7 +147,7 @@ var (
 	MonitorPort = cli.IntFlag{
 		Name:  "monitorport",
 		Usage: "the port of ethMonitor server",
-		Value: 1234,
+		Value: 0,
 	}
 	// General settings
 	DataDirFlag = DirectoryFlag{

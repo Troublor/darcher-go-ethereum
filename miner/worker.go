@@ -566,7 +566,7 @@ func (w *worker) resultLoop() {
 		case block := <-w.resultCh:
 			// TODO troublor modify
 			// short circuit when mining target has already been achieved
-			if !w.monitor.GetCurrentTask().ShouldContinue() {
+			if w.monitor != nil && !w.monitor.GetCurrentTask().ShouldContinue() {
 				w.monitor.StopMining()
 				log.Info("Mining target achieved, stop mining")
 				continue
@@ -773,7 +773,7 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 		}
 
 		// TODO troublor modify: only execute allowed tx
-		if !w.monitor.IsTxAllowed(tx.Hash()) {
+		if w.monitor != nil && !w.monitor.IsTxAllowed(tx.Hash()) {
 			txs.Pop()
 			continue
 		}
@@ -988,7 +988,7 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 	s := w.current.state.Copy()
 	// TODO troublor modify
 	if w.isRunning() {
-		if w.monitor.GetCurrentTask().ShouldContinue() {
+		if w.monitor != nil && w.monitor.GetCurrentTask().ShouldContinue() {
 			//w.current.header.Difficulty = w.monitor.GetDifficulty()
 		} else {
 			w.monitor.StopMining()
