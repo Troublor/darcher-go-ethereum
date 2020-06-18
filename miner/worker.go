@@ -522,6 +522,7 @@ func (w *worker) taskLoop() {
 	// interrupt aborts the in-flight sealing task.
 	interrupt := func() {
 		if stopCh != nil {
+			log.Info("interrupt sealing", "prev", prev)
 			close(stopCh)
 			stopCh = nil
 		}
@@ -535,6 +536,7 @@ func (w *worker) taskLoop() {
 			// Reject duplicate sealing work due to resubmitting.
 			sealHash := w.engine.SealHash(task.block.Header())
 			if sealHash == prev {
+				log.Info("reject duplicate sealing work", "sealHash", sealHash)
 				continue
 			}
 			// Interrupt previous sealing operation
@@ -550,7 +552,10 @@ func (w *worker) taskLoop() {
 
 			if err := w.engine.Seal(w.chain, task.block, w.resultCh, stopCh); err != nil {
 				log.Warn("Block sealing failed", "err", err)
+			} else { // TODO troublor modify start
+				log.Info("Engine sealing", "sealHash", sealHash)
 			}
+			// troublor modify ends
 		case <-w.exitCh:
 			interrupt()
 			return
@@ -564,13 +569,16 @@ func (w *worker) resultLoop() {
 	for {
 		select {
 		case block := <-w.resultCh:
-			// TODO troublor modify
+			// TODO troublor modify starts
+			log.Info("get sealing result", "sealHash", w.engine.SealHash(block.Header()), "hash", block.Hash())
 			// short circuit when mining target has already been achieved
 			if w.monitor != nil && !w.monitor.GetCurrentTask().ShouldContinue() {
 				w.monitor.StopMining()
 				log.Info("Mining target achieved, stop mining")
 				continue
 			}
+			// troublor modify ends
+
 			// Short circuit when receiving empty result.
 			if block == nil {
 				continue
@@ -728,7 +736,11 @@ func (w *worker) commitTransaction(tx *types.Transaction, coinbase common.Addres
 }
 
 func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coinbase common.Address, interrupt *int32) bool {
-	log.Info("commit txs")
+	// TODO troublor modify starts
+	committedTxCount := 0
+	skipptedTxCount := 0
+	// troublor modify ends
+
 	// Short circuit if current is nil
 	if w.current == nil {
 		return true
@@ -772,11 +784,13 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 			break
 		}
 
-		// TODO troublor modify: only execute allowed tx
+		// TODO troublor modify starts: only execute allowed tx
 		if w.monitor != nil && !w.monitor.IsTxAllowed(tx.Hash()) {
 			txs.Pop()
+			skipptedTxCount++
 			continue
 		}
+		// troublor modify ends
 
 		// Error may be ignored here. The error has already been checked
 		// during transaction acceptance is the transaction pool.
@@ -817,6 +831,10 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 			w.current.tcount++
 			txs.Shift()
 
+			// TODO troublor modify starts
+			committedTxCount++
+			// troublor modify ends
+
 		default:
 			// Strange error, discard the transaction and get the next in line (note, the
 			// nonce-too-high clause will prevent us from executing in vain).
@@ -845,6 +863,11 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 	if interrupt != nil {
 		w.resubmitAdjustCh <- &intervalAdjust{inc: false}
 	}
+
+	// TODO troublor modify starts
+	log.Info("commit transactions", "count", committedTxCount, "skipped", skipptedTxCount)
+	// troublor modify ends
+
 	return false
 }
 
