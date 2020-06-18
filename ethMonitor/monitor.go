@@ -123,6 +123,9 @@ func (m *Monitor) IsTxAllowed(hash common.Hash) bool {
 }
 
 func (m *Monitor) Start() {
+	if m.monitorPort == 0 {
+		return
+	}
 	// connect to rpc server
 	client, err := rpc.DialHTTP("tcp", fmt.Sprintf("127.0.0.1:%d", m.monitorPort))
 	if err != nil {
