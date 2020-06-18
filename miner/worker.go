@@ -522,7 +522,9 @@ func (w *worker) taskLoop() {
 	// interrupt aborts the in-flight sealing task.
 	interrupt := func() {
 		if stopCh != nil {
+			// TODO troublor modify starts
 			log.Info("interrupt sealing", "prev", prev)
+			// troublor modify ends
 			close(stopCh)
 			stopCh = nil
 		}
@@ -536,7 +538,9 @@ func (w *worker) taskLoop() {
 			// Reject duplicate sealing work due to resubmitting.
 			sealHash := w.engine.SealHash(task.block.Header())
 			if sealHash == prev {
+				// TODO troublor modify starts
 				log.Info("reject duplicate sealing work", "sealHash", sealHash)
+				// troublor modify ends
 				continue
 			}
 			// Interrupt previous sealing operation
@@ -574,7 +578,7 @@ func (w *worker) resultLoop() {
 			// short circuit when mining target has already been achieved
 			if w.monitor != nil && !w.monitor.GetCurrentTask().ShouldContinue() {
 				w.monitor.StopMining()
-				log.Info("Mining target achieved, stop mining")
+				log.Info("Mining target achieved, stop mining", "task", w.monitor.GetCurrentTask().String())
 				continue
 			}
 			// troublor modify ends
@@ -1015,7 +1019,7 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 			//w.current.header.Difficulty = w.monitor.GetDifficulty()
 		} else {
 			w.monitor.StopMining()
-			log.Info("Mining target achieved, stop mining")
+			log.Info("Mining target achieved, stop mining", "task", w.monitor.GetCurrentTask().String())
 		}
 	}
 	block, err := w.engine.FinalizeAndAssemble(w.chain, w.current.header, s, w.current.txs, uncles, w.current.receipts)
