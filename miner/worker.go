@@ -179,8 +179,9 @@ type worker struct {
 	fullTaskHook func()                             // Method to call before pushing the full sealing task.
 	resubmitHook func(time.Duration, time.Duration) // Method to call upon updating resubmitting interval.
 
-	// TODO troublor modify
+	// TODO troublor modify starts
 	monitor *ethMonitor.Monitor
+	// troublor modify ends
 }
 
 func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, isLocalBlock func(*types.Block) bool, init bool) *worker {
@@ -519,12 +520,36 @@ func (w *worker) taskLoop() {
 		prev   common.Hash
 	)
 
+	// TODO troublor modify starts: start a goroutine to reset prev when mining task target is achieved
+	var prevRWMutex sync.RWMutex
+	if w.monitor != nil {
+		ch := make(chan ethMonitor.Task, 1)
+		sub := w.monitor.SubscribeNewTask(ch)
+		defer sub.Unsubscribe()
+		// listen for new mining task,
+		// for every task, start a new goroutine to reset prev when it achieves its target
+		go func() {
+			for {
+				select {
+				case task := <-ch:
+					go func() {
+						// reset prev when mining task achieves its target
+						<-task.TargetAchievedCh()
+						prevRWMutex.Lock()
+						prev = common.Hash{}
+						prevRWMutex.Unlock()
+					}()
+				case <-w.exitCh:
+					return
+				}
+			}
+		}()
+	}
+	// troublor modify ends
+
 	// interrupt aborts the in-flight sealing task.
 	interrupt := func() {
 		if stopCh != nil {
-			// TODO troublor modify starts
-			log.Info("interrupt sealing", "prev", prev)
-			// troublor modify ends
 			close(stopCh)
 			stopCh = nil
 		}
@@ -537,15 +562,30 @@ func (w *worker) taskLoop() {
 			}
 			// Reject duplicate sealing work due to resubmitting.
 			sealHash := w.engine.SealHash(task.block.Header())
+			// TODO troublor modify starts
+			prevRWMutex.RLock()
+			// troublor modify ends
 			if sealHash == prev {
 				// TODO troublor modify starts
 				log.Info("reject duplicate sealing work", "sealHash", sealHash)
+				prevRWMutex.RUnlock()
 				// troublor modify ends
 				continue
 			}
+			// TODO troublor modify starts
+			prevRWMutex.RUnlock()
+			// troublor modify ends
+
 			// Interrupt previous sealing operation
 			interrupt()
+
+			// TODO troublor modify starts
+			prevRWMutex.Lock()
+			// troublor modify ends
 			stopCh, prev = make(chan struct{}), sealHash
+			// TODO troublor modify starts
+			prevRWMutex.Unlock()
+			// troublor modify ends
 
 			if w.skipSealHook != nil && w.skipSealHook(task) {
 				continue
@@ -556,7 +596,8 @@ func (w *worker) taskLoop() {
 
 			if err := w.engine.Seal(w.chain, task.block, w.resultCh, stopCh); err != nil {
 				log.Warn("Block sealing failed", "err", err)
-			} else { // TODO troublor modify start
+			} else /* TODO troublor modify start */
+			{
 				log.Info("Engine sealing", "sealHash", sealHash)
 			}
 			// troublor modify ends
@@ -576,10 +617,14 @@ func (w *worker) resultLoop() {
 			// TODO troublor modify starts
 			log.Info("get sealing result", "sealHash", w.engine.SealHash(block.Header()), "hash", block.Hash())
 			// short circuit when mining target has already been achieved
-			if w.monitor != nil && !w.monitor.GetCurrentTask().ShouldContinue() {
-				w.monitor.StopMining()
-				log.Info("Mining target achieved, stop mining", "task", w.monitor.GetCurrentTask().String())
-				continue
+			if w.monitor != nil {
+				select {
+				case <-w.monitor.GetCurrentTask().TargetAchievedCh():
+					w.monitor.StopMining()
+					log.Info("Mining target achieved, stop mining", "task", w.monitor.GetCurrentTask().String())
+					continue
+				default:
+				}
 			}
 			// troublor modify ends
 
@@ -887,12 +932,19 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 		timestamp = int64(parent.Time() + 1)
 	}
 	// this will ensure we're not going off too far in the future
-	// TODO troublor modify
+	// TODO troublor modify starts: comment out
 	//if now := time.Now().Unix(); timestamp > now+1 {
 	//	wait := time.Duration(timestamp-now) * time.Second
 	//	log.Info("Mining too far in the future", "wait", common.PrettyDuration(wait))
 	//	time.Sleep(wait)
 	//}
+	// troublor modify ends
+
+	// TODO troublor modify start: instrument OnNewMiningWork hook
+	if w.monitor != nil {
+		w.monitor.GetCurrentTask().OnNewMiningWork()
+	}
+	// troublor modify ends
 
 	num := parent.Number()
 	header := &types.Header{
@@ -1013,15 +1065,19 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 		*receipts[i] = *l
 	}
 	s := w.current.state.Copy()
-	// TODO troublor modify
+	// TODO troublor modify starts
 	if w.isRunning() {
-		if w.monitor != nil && w.monitor.GetCurrentTask().ShouldContinue() {
-			//w.current.header.Difficulty = w.monitor.GetDifficulty()
-		} else {
-			w.monitor.StopMining()
-			log.Info("Mining target achieved, stop mining", "task", w.monitor.GetCurrentTask().String())
+		if w.monitor != nil {
+			select {
+			case <-w.monitor.GetCurrentTask().TargetAchievedCh():
+				w.monitor.StopMining()
+				log.Info("Mining target achieved, stop mining", "task", w.monitor.GetCurrentTask().String())
+			default:
+			}
 		}
 	}
+	// troublor modify ends
+
 	block, err := w.engine.FinalizeAndAssemble(w.chain, w.current.header, s, w.current.txs, uncles, w.current.receipts)
 	if err != nil {
 		return err

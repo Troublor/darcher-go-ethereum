@@ -11,21 +11,58 @@ import (
 	"time"
 )
 
+type baseTask struct {
+	targetAchievedCh chan interface{}
+}
+
+func newBaseTask(eth Ethereum, targetAchieved func(block *types.Block) bool) baseTask {
+	task := baseTask{targetAchievedCh: make(chan interface{})}
+	go func() {
+		ch := make(chan core.ChainHeadEvent, 10)
+		sub := eth.BlockChain().SubscribeChainHeadEvent(ch)
+		defer sub.Unsubscribe()
+		for {
+			ev := <-ch
+			if targetAchieved(ev.Block) {
+				// target achieved
+				close(task.targetAchievedCh)
+				break
+			}
+		}
+	}()
+	return task
+}
+
+func (t baseTask) TargetAchievedCh() chan interface{} {
+	return t.targetAchievedCh
+}
+
+func (t baseTask) interrupt() {
+
+}
+
 // BudgetTask is used to control miner to mine according to a budget
 type BudgetTask struct {
+	baseTask
 	eth               Ethereum
 	targetBlockNumber *big.Int
 }
 
 func NewBudgetTask(eth Ethereum, budget int64) *BudgetTask {
-	return &BudgetTask{
+	targetNumber := big.NewInt(0).Add(eth.BlockChain().CurrentBlock().Number(), big.NewInt(budget))
+	task := &BudgetTask{
+		baseTask: newBaseTask(eth, func(block *types.Block) bool {
+			return block.Number().Cmp(targetNumber) >= 0
+		}),
 		eth:               eth,
-		targetBlockNumber: big.NewInt(0).Add(eth.BlockChain().CurrentBlock().Number(), big.NewInt(budget)),
+		targetBlockNumber: targetNumber,
 	}
+
+	return task
 }
 
-func (t *BudgetTask) ShouldContinue() bool {
-	return t.eth.BlockChain().CurrentBlock().Number().Cmp(t.targetBlockNumber) < 0
+func (t *BudgetTask) OnNewMiningWork() {
+	return
 }
 
 func (t *BudgetTask) String() string {
@@ -39,19 +76,24 @@ func (t *BudgetTask) IsTxAllowed(txHash common.Hash) bool {
 // BudgetTask is used to control miner to mine according to a budget
 // do not allow any txs
 type BudgetWithoutTxTask struct {
+	baseTask
 	eth               Ethereum
 	targetBlockNumber *big.Int
 }
 
 func NewBudgetWithoutTxTask(eth Ethereum, budget int64) *BudgetWithoutTxTask {
+	targetNumber := big.NewInt(0).Add(eth.BlockChain().CurrentBlock().Number(), big.NewInt(budget))
 	return &BudgetWithoutTxTask{
+		baseTask: newBaseTask(eth, func(block *types.Block) bool {
+			return block.Number().Cmp(targetNumber) >= 0
+		}),
 		eth:               eth,
-		targetBlockNumber: big.NewInt(0).Add(eth.BlockChain().CurrentBlock().Number(), big.NewInt(budget)),
+		targetBlockNumber: targetNumber,
 	}
 }
 
-func (t *BudgetWithoutTxTask) ShouldContinue() bool {
-	return t.eth.BlockChain().CurrentBlock().Number().Cmp(t.targetBlockNumber) < 0
+func (t *BudgetWithoutTxTask) OnNewMiningWork() {
+	return
 }
 
 func (t *BudgetWithoutTxTask) String() string {
@@ -65,21 +107,26 @@ func (t *BudgetWithoutTxTask) IsTxAllowed(txHash common.Hash) bool {
 // BudgetTask is used to control miner to mine according to a budget
 // allowing all txs but one specified tx
 type BudgetExceptTxTask struct {
+	baseTask
 	eth               Ethereum
 	targetBlockNumber *big.Int
 	txHash            string
 }
 
 func NewBudgetExceptTxTask(eth Ethereum, budget int64, txHash string) *BudgetExceptTxTask {
+	targetNumber := big.NewInt(0).Add(eth.BlockChain().CurrentBlock().Number(), big.NewInt(budget))
 	return &BudgetExceptTxTask{
+		baseTask: newBaseTask(eth, func(block *types.Block) bool {
+			return block.Number().Cmp(targetNumber) >= 0
+		}),
 		eth:               eth,
-		targetBlockNumber: big.NewInt(0).Add(eth.BlockChain().CurrentBlock().Number(), big.NewInt(budget)),
+		targetBlockNumber: targetNumber,
 		txHash:            txHash,
 	}
 }
 
-func (t *BudgetExceptTxTask) ShouldContinue() bool {
-	return t.eth.BlockChain().CurrentBlock().Number().Cmp(t.targetBlockNumber) < 0
+func (t *BudgetExceptTxTask) OnNewMiningWork() {
+	return
 }
 
 func (t *BudgetExceptTxTask) String() string {
@@ -93,6 +140,7 @@ func (t *BudgetExceptTxTask) IsTxAllowed(txHash common.Hash) bool {
 // IntervalTask is used to repeatedly mine blocks with time interval
 // TODO concurrency bug: mining process may deadlock when there are many concurrent txs
 type IntervalTask struct {
+	baseTask
 	eth      Ethereum
 	interval uint
 	clock    <-chan time.Time
@@ -102,28 +150,38 @@ type IntervalTask struct {
 }
 
 func NewIntervalTask(eth Ethereum, interval uint) *IntervalTask {
+	stopCh := make(chan interface{}, 1)
 	return &IntervalTask{
+		baseTask: newBaseTask(eth, func(block *types.Block) bool {
+			// daemon task achieves target only when it is explicitly stopped
+			select {
+			case <-stopCh:
+				return true
+			default:
+				return false
+			}
+		}),
 		eth:                eth,
 		interval:           interval,
 		clock:              time.After(time.Duration(interval) * time.Millisecond),
-		stopCh:             make(chan interface{}, 1),
+		stopCh:             stopCh,
 		currentBlockNumber: eth.BlockChain().CurrentBlock().Number(),
 	}
 
 }
 
-func (t *IntervalTask) ShouldContinue() bool {
+func (t *IntervalTask) OnNewMiningWork() {
 	bn := t.eth.BlockChain().CurrentBlock().Number()
 	if bn.Cmp(t.currentBlockNumber) == 0 {
-		return true
+		return
 	}
 	select {
 	case <-t.clock:
 		t.clock = time.After(time.Duration(t.interval) * time.Millisecond)
 		t.currentBlockNumber = t.eth.BlockChain().CurrentBlock().Number()
-		return true
+		return
 	case <-t.stopCh:
-		return false
+		return
 	}
 }
 
@@ -142,6 +200,7 @@ func (t *IntervalTask) String() string {
 // TxMonitorTask is a forever running task which mines blocks whenever there are tasks in txpool
 // this is different from TxExecuteTask which only mines blocks until certain tx is mined
 type TxMonitorTask struct {
+	baseTask
 	txPool *core.TxPool
 
 	txCh   chan core.NewTxsEvent
@@ -149,26 +208,36 @@ type TxMonitorTask struct {
 	stopCh chan interface{}
 }
 
-func NewTxMonitorTask(txPool *core.TxPool) *TxMonitorTask {
+func NewTxMonitorTask(eth Ethereum, txPool *core.TxPool) *TxMonitorTask {
+	stopCh := make(chan interface{})
 	task := &TxMonitorTask{
+		baseTask: newBaseTask(eth, func(block *types.Block) bool {
+			// daemon task achieves target only when it is explicitly stopped
+			select {
+			case <-stopCh:
+				return true
+			default:
+				return false
+			}
+		}),
 		txPool: txPool,
 		txCh:   make(chan core.NewTxsEvent),
-		stopCh: make(chan interface{}),
+		stopCh: stopCh,
 	}
 	task.txSub = task.txPool.SubscribeNewTxsEvent(task.txCh)
 	return task
 }
 
-func (t *TxMonitorTask) ShouldContinue() bool {
+func (t *TxMonitorTask) OnNewMiningWork() {
 	select {
 	case <-t.stopCh:
-		return false
+		return
 	default:
 		txs, err := t.txPool.Pending()
 		if err != nil {
 			t.Stop()
-			log.Error("retrieving tx from txPool error", "err", err)
-			return false
+			log.Error("retrieving tx from txPool error, stopping task", "err", err)
+			return
 		} else {
 			if len(txs) > 0 {
 			out:
@@ -180,14 +249,14 @@ func (t *TxMonitorTask) ShouldContinue() bool {
 					}
 				}
 
-				return true
+				return
 			} else {
 				select {
 				case <-t.txCh:
 					time.Sleep(500 * time.Millisecond)
-					return true
+					return
 				case <-t.stopCh:
-					return false
+					return
 				}
 			}
 		}
@@ -209,19 +278,23 @@ func (t *TxMonitorTask) String() string {
 
 // TxExecuteTask is used to control miner to execute a transaction
 type TxExecuteTask struct {
+	baseTask
 	eth               Ethereum
 	targetTransaction *types.Transaction
 }
 
 func NewTxExecuteTask(eth Ethereum, targetTransaction *types.Transaction) *TxExecuteTask {
 	return &TxExecuteTask{
+		baseTask: newBaseTask(eth, func(block *types.Block) bool {
+			return eth.TxPool().Get(targetTransaction.Hash()) == nil
+		}),
 		eth:               eth,
 		targetTransaction: targetTransaction,
 	}
 }
 
-func (t *TxExecuteTask) ShouldContinue() bool {
-	return t.eth.TxPool().Get(t.targetTransaction.Hash()) != nil
+func (t *TxExecuteTask) OnNewMiningWork() {
+	return
 }
 
 func (t *TxExecuteTask) IsTxAllowed(txHash common.Hash) bool {
@@ -235,22 +308,23 @@ func (t *TxExecuteTask) String() string {
 // a mining task to mine until total difficulty being larger than the given Td
 // no tx is allowed
 type TdTask struct {
+	baseTask
 	eth      Ethereum
 	targetTd *big.Int
 }
 
 func NewTdTask(eth Ethereum, targetTd *big.Int) *TdTask {
 	return &TdTask{
+		baseTask: newBaseTask(eth, func(block *types.Block) bool {
+			return eth.BlockChain().GetTdByHash(block.Hash()).Cmp(targetTd) > 0
+		}),
 		eth:      eth,
 		targetTd: targetTd,
 	}
 }
 
-func (t *TdTask) ShouldContinue() bool {
-	bc := t.eth.BlockChain()
-	td := bc.GetTdByHash(bc.CurrentBlock().Hash())
-	log.Info("TdTask", "td", td, "target", t.targetTd)
-	return td.Cmp(t.targetTd) <= 0
+func (t *TdTask) OnNewMiningWork() {
+	return
 }
 
 func (t *TdTask) IsTxAllowed(txHash common.Hash) bool {
@@ -259,4 +333,30 @@ func (t *TdTask) IsTxAllowed(txHash common.Hash) bool {
 
 func (t *TdTask) String() string {
 	return fmt.Sprintf("TdTask(%d)", t.targetTd.Int64())
+}
+
+// a placeholder empty task, allowing no tx, always shouldn't continue
+// a instance of this should be returned when currentTask is nil
+type nilTask struct {
+}
+
+var NilTask = &nilTask{}
+
+func (t *nilTask) TargetAchievedCh() chan interface{} {
+	ch := make(chan interface{})
+	close(ch)
+	return ch
+}
+
+func (t *nilTask) OnNewMiningWork() {
+	log.Warn("Nil mining task, please specify")
+	return
+}
+
+func (t *nilTask) String() string {
+	return "NilTask()"
+}
+
+func (t *nilTask) IsTxAllowed(txHash common.Hash) bool {
+	return false
 }

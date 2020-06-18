@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
@@ -22,6 +23,9 @@ type Monitor struct {
 	serverPort  int
 	monitorPort int
 
+	// a feed for every new Task
+	newTaskFeed event.Feed
+
 	// context fields
 	eth   Ethereum
 	node  Node
@@ -31,7 +35,7 @@ type Monitor struct {
 	currentTask Task
 
 	// tx scheduler to control the SubmitTransaction JSON RPC
-	txScheduler *TxScheduler
+	txScheduler TxScheduler
 }
 
 func NewMonitor(role Role, monitorPort int) *Monitor {
@@ -45,11 +49,18 @@ func NewMonitor(role Role, monitorPort int) *Monitor {
 	default:
 		log.Error("Invalid Role", "role", role)
 	}
+	var scheduler TxScheduler
+	if monitorPort == 0 {
+		scheduler = FakeTxScheduler
+		log.Warn("Monitor starts without upstream")
+	} else {
+		scheduler = newTxScheduler()
+	}
 	return &Monitor{
 		role:        role,
 		serverPort:  port,
 		monitorPort: monitorPort,
-		txScheduler: NewTxScheduler(),
+		txScheduler: scheduler,
 	}
 }
 
@@ -69,20 +80,29 @@ func (m *Monitor) SetProtocolManager(pm ProtocolManager) {
 	m.pm = pm
 }
 
-func (m *Monitor) setCurrent(task Task) {
+func (m *Monitor) setCurrentTask(task Task) {
 	// should stop persistent tasks (e.g TxMonitorTask, IntervalTask)
 	m.StopDaemonMiningTask()
 
 	// set new task
 	m.currentTask = task
+	m.newTaskFeed.Send(task)
 	log.Info("new mining task", "task", task.String())
 }
 
-func (m *Monitor) GetCurrentTask() Task {
-	return m.currentTask
+func (m *Monitor) SubscribeNewTask(ch chan<- Task) event.Subscription {
+	return m.newTaskFeed.Subscribe(ch)
 }
 
-func (m *Monitor) GetTxScheduler() *TxScheduler {
+func (m *Monitor) GetCurrentTask() Task {
+	if m.currentTask != nil {
+		return m.currentTask
+	} else {
+		return NilTask
+	}
+}
+
+func (m *Monitor) GetTxScheduler() TxScheduler {
 	return m.txScheduler
 }
 
@@ -135,7 +155,7 @@ func (m *Monitor) NotifyNodeStart(node *node.Node) {
 	if err != nil {
 		log.Error("RPC Call NotifyNodeStart error", "err", err.Error())
 	}
-	if reply != nil && reply.Err != nil {
+	if reply.Err != nil {
 		log.Error("NotifyNodeStart error", "err", reply.Err.Error())
 	}
 }
@@ -148,6 +168,9 @@ func (m *Monitor) StartMining() error {
 // stop geth miner
 func (m *Monitor) StopMining() {
 	m.eth.StopMining()
+
+	// set currentTask to be nil
+	m.currentTask = nil
 }
 
 /*
@@ -156,7 +179,7 @@ Mining Utilities
 // mine until certain amount of blocks
 func (m *Monitor) MineBlocks(count int64) error {
 	task := NewBudgetTask(m.eth, count)
-	m.setCurrent(task)
+	m.setCurrentTask(task)
 	err := m.StartMining()
 	if err != nil {
 		return err
@@ -166,7 +189,7 @@ func (m *Monitor) MineBlocks(count int64) error {
 
 func (m *Monitor) MineBlocksWithoutTx(count int64) error {
 	task := NewBudgetWithoutTxTask(m.eth, count)
-	m.setCurrent(task)
+	m.setCurrentTask(task)
 	err := m.StartMining()
 	if err != nil {
 		return err
@@ -176,7 +199,7 @@ func (m *Monitor) MineBlocksWithoutTx(count int64) error {
 
 func (m *Monitor) MineBlocksExceptTx(count int64, txHash string) error {
 	task := NewBudgetExceptTxTask(m.eth, count, txHash)
-	m.setCurrent(task)
+	m.setCurrentTask(task)
 	err := m.StartMining()
 	if err != nil {
 		return err
@@ -195,7 +218,7 @@ func (m *Monitor) StopDaemonMiningTask() {
 // mine block with time interval (daemon task)
 func (m *Monitor) MineBlockInterval(interval uint) error {
 	var intervalTask DaemonTask = NewIntervalTask(m.eth, interval)
-	m.setCurrent(intervalTask)
+	m.setCurrentTask(intervalTask)
 	err := m.StartMining()
 	if err != nil {
 		return err
@@ -204,8 +227,8 @@ func (m *Monitor) MineBlockInterval(interval uint) error {
 }
 
 func (m *Monitor) MineWhenTx() error {
-	var txMonitorTask DaemonTask = NewTxMonitorTask(m.eth.TxPool())
-	m.setCurrent(txMonitorTask)
+	var txMonitorTask DaemonTask = NewTxMonitorTask(m.eth, m.eth.TxPool())
+	m.setCurrentTask(txMonitorTask)
 	err := m.StartMining()
 	if err != nil {
 		return err
@@ -226,7 +249,7 @@ func (m *Monitor) MineTx(txHash common.Hash) error {
 		return fmt.Errorf("tx does not exist: %s", txHash.Hex())
 	}
 	task := NewTxExecuteTask(m.eth, tx)
-	m.setCurrent(task)
+	m.setCurrentTask(task)
 	err := m.StartMining()
 	if err != nil {
 		return err
@@ -237,7 +260,7 @@ func (m *Monitor) MineTx(txHash common.Hash) error {
 // mine until Td is larger than the given td
 func (m *Monitor) MineTd(td *big.Int) error {
 	task := NewTdTask(m.eth, td)
-	m.setCurrent(task)
+	m.setCurrentTask(task)
 	err := m.StartMining()
 	if err != nil {
 		return err
@@ -277,7 +300,7 @@ func (m *Monitor) notifyNewTx(tx *types.Transaction) {
 	if err != nil {
 		log.Error("RPC Call notifyNewTx error", "err", err.Error())
 	}
-	if reply != nil && reply.Err != nil {
+	if reply.Err != nil {
 		log.Error("notifyNewTx error", "err", reply.Err.Error())
 	}
 }
@@ -314,7 +337,7 @@ func (m *Monitor) notifyNewChainHead(block *types.Block) {
 	if err != nil {
 		log.Error("RPC Call notifyNewChainHead error", "err", err.Error())
 	}
-	if reply != nil && reply.Err != nil {
+	if reply.Err != nil {
 		log.Error("notifyNewChainHead error", "err", reply.Err.Error())
 	}
 }
@@ -351,7 +374,7 @@ func (m *Monitor) notifyNewChainSide(block *types.Block) {
 	if err != nil {
 		log.Error("RPC Call notifyNewChainSide error", "err", err.Error())
 	}
-	if reply != nil && reply.Err != nil {
+	if reply.Err != nil {
 		log.Error("notifyNewChainSide error", "err", reply.Err.Error())
 	}
 }
@@ -390,7 +413,7 @@ func (m *Monitor) notifyPeerAdd(ev *p2p.PeerEvent) {
 	if err != nil {
 		log.Error("RPC Call notifyPeerAdd error", "err", err.Error())
 	}
-	if reply != nil && reply.Err != nil {
+	if reply.Err != nil {
 		log.Error("notifyPeerAdd error", "err", reply.Err.Error())
 	}
 }
@@ -405,7 +428,7 @@ func (m *Monitor) notifyPeerDrop(ev *p2p.PeerEvent) {
 	if err != nil {
 		log.Error("RPC Call notifyPeerDrop error", "err", err.Error())
 	}
-	if reply != nil && reply.Err != nil {
+	if reply.Err != nil {
 		log.Error("notifyPeerDrop error", "err", reply.Err.Error())
 	}
 }

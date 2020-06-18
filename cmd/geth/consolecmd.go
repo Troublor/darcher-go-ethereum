@@ -79,7 +79,7 @@ JavaScript API. See https://github.com/ethereum/go-ethereum/wiki/JavaScript-Cons
 func localConsole(ctx *cli.Context) error {
 	// Create and start the node based on the CLI flags
 	prepare(ctx)
-	// TODO troublor modify
+	// TODO troublor modify starts
 	var role ethMonitor.Role
 	if ctx.GlobalBool(utils.TalkerFlag.Name) {
 		role = ethMonitor.TALKER
@@ -88,9 +88,11 @@ func localConsole(ctx *cli.Context) error {
 	}
 	monitorPort := ctx.GlobalInt(utils.MonitorPort.Name)
 	var node *node.Node
-	if monitorPort == 0 {
+	if monitorPort == -1 {
+		// troublor modify ends
 		node = makeFullNode(ctx)
 		startNode(ctx, node)
+		// TODO troublor modify starts
 	} else {
 		monitor := ethMonitor.NewMonitor(role, monitorPort)
 		node = makeFullNodeWithMonitor(ctx, monitor)

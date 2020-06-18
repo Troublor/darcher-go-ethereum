@@ -25,7 +25,10 @@ type Stoppable interface {
 }
 
 type Task interface {
-	ShouldContinue() bool
+	// returns a channel which is used to signal whether the task target has been achieved or not
+	TargetAchievedCh() chan interface{}
+	// a hook function, called before whenever a new mining task is committed
+	OnNewMiningWork()
 	fmt.Stringer
 	IsTxAllowed(txHash common.Hash) bool
 }

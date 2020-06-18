@@ -1469,9 +1469,12 @@ func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 	} else {
 		log.Info("Submitted transaction", "fullhash", tx.Hash().Hex(), "recipient", tx.To())
 	}
-	// TODO troublor modify
+	// TODO troublor modify starts
 	// intercept here when tx is not allowed to traverse yet
-	txScheduler.WaitForTurn(tx.Hash().String())
+	if txScheduler != nil {
+		txScheduler.WaitForTurn(tx.Hash().String())
+	}
+	// troublor modify ends
 
 	return tx.Hash(), nil
 }
@@ -1657,9 +1660,12 @@ func (s *PublicTransactionPoolAPI) Resend(ctx context.Context, sendArgs SendTxAr
 				return common.Hash{}, err
 			}
 
-			// TODO troublor modify
-			// intercept the transaction resend just as what we do in SubmitTransaction
-			txScheduler.WaitForTurn(signedTx.Hash().String())
+			// TODO troublor modify starts
+			if txScheduler != nil {
+				// intercept the transaction resend just as what we do in SubmitTransaction
+				txScheduler.WaitForTurn(signedTx.Hash().String())
+			}
+			// troublor modify ends
 
 			return signedTx.Hash(), nil
 		}

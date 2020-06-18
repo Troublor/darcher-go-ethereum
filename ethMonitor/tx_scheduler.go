@@ -4,6 +4,11 @@ import (
 	"sync"
 )
 
+type TxScheduler interface {
+	WaitForTurn(hash string)
+	ScheduleTx(hash string)
+}
+
 /**
 This struct is used to schedule new transactions, when a new transaction is submitted, the SubmitTransaction RPC will
 not return immediately, it will return until it is scheduled by this scheduler.
@@ -13,7 +18,7 @@ scheduled in the dArcher
 
 By doing so, the dApp will get the transaction hash only when the transaction is scheduled to traverse lifecycle
 */
-type TxScheduler struct {
+type txScheduler struct {
 	// this is queue is the set of transactions waiting for being scheduled, txHash as string is stored as key in order to
 	// compare with those in dArcher, the value of the map is a channel to signal the corresponding tx that it is scheduled
 	// the channel should be closed when tx is scheduled instead of send value, in case multiple goroutine is waiting for it.
@@ -21,8 +26,8 @@ type TxScheduler struct {
 	mutex sync.Mutex
 }
 
-func NewTxScheduler() *TxScheduler {
-	return &TxScheduler{
+func newTxScheduler() *txScheduler {
+	return &txScheduler{
 		queue: make(map[string]chan interface{}),
 	}
 }
@@ -30,7 +35,7 @@ func NewTxScheduler() *TxScheduler {
 /**
 This method will block, until the given transaction is scheduled to traverse lifecycle
 */
-func (s *TxScheduler) WaitForTurn(hash string) {
+func (s *txScheduler) WaitForTurn(hash string) {
 	var ch chan interface{}
 	s.mutex.Lock()
 	var ok bool
@@ -46,7 +51,7 @@ func (s *TxScheduler) WaitForTurn(hash string) {
 /**
 This method should be called by dArcher through RPC to schedule the given transaction
 */
-func (s *TxScheduler) ScheduleTx(hash string) {
+func (s *txScheduler) ScheduleTx(hash string) {
 	s.mutex.Lock()
 	if ch, ok := s.queue[hash]; ok {
 		close(ch)
@@ -58,4 +63,17 @@ func (s *TxScheduler) ScheduleTx(hash string) {
 		close(ch)
 	}
 	s.mutex.Unlock()
+}
+
+type fakeTxScheduler struct {
+}
+
+var FakeTxScheduler = fakeTxScheduler{}
+
+func (s fakeTxScheduler) WaitForTurn(hash string) {
+	return
+}
+
+func (s fakeTxScheduler) ScheduleTx(hash string) {
+	return
 }

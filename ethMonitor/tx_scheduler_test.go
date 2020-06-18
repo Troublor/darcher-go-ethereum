@@ -9,7 +9,7 @@ import (
 func TestTxScheduler_WaitForTurn(t *testing.T) {
 	var mutex sync.Mutex
 	result := make([]string, 0)
-	scheduler := NewTxScheduler()
+	scheduler := newTxScheduler()
 	var wg1, wg2, wg3 sync.WaitGroup
 	wg1.Add(1)
 	wg2.Add(1)
