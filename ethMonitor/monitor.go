@@ -30,10 +30,6 @@ type Monitor struct {
 
 	currentTask Task
 
-	// other useful fields
-	intervalTask  *IntervalTask
-	txMonitorTask *TxMonitorTask
-
 	// tx scheduler to control the SubmitTransaction JSON RPC
 	txScheduler *TxScheduler
 }
@@ -75,13 +71,11 @@ func (m *Monitor) SetProtocolManager(pm ProtocolManager) {
 
 func (m *Monitor) setCurrent(task Task) {
 	// should stop persistent tasks (e.g TxMonitorTask, IntervalTask)
-	if _, ok := task.(*TxMonitorTask); !ok && m.txMonitorTask != nil {
-		m.StopMiningWhenTx()
-	}
-	if _, ok := task.(*IntervalTask); !ok && m.intervalTask != nil {
-		m.StopMiningBlockInterval()
-	}
+	m.StopDaemonMiningTask()
+
+	// set new task
 	m.currentTask = task
+	log.Info("new mining task", "task", task.String())
 }
 
 func (m *Monitor) GetCurrentTask() Task {
@@ -98,29 +92,14 @@ func (m *Monitor) isInitialized() bool {
 
 func (m *Monitor) IsTxAllowed(hash common.Hash) bool {
 	if m.currentTask == nil {
+		// if there is no mining task, do not allow any transaction
 		return false
 	}
 	if m.role == TALKER {
+		// TALKER should not execute any tx
 		return false
 	}
-	switch m.currentTask.(type) {
-	case *TxMonitorTask:
-		return true
-	case *BudgetTask:
-		return true
-	case *IntervalTask:
-		return true
-	case *TdTask:
-		return true
-	case *TxExecuteTask:
-		return m.currentTask.(*TxExecuteTask).targetTransaction.Hash() == hash
-	case *BudgetWithoutTxTask:
-		return false
-	case *BudgetExceptTxTask:
-		return m.currentTask.(*BudgetExceptTxTask).txHash != hash.String()
-	default:
-		return false
-	}
+	return m.currentTask.IsTxAllowed(hash)
 }
 
 func (m *Monitor) Start() {
@@ -161,10 +140,12 @@ func (m *Monitor) NotifyNodeStart(node *node.Node) {
 	}
 }
 
+// start geth miner
 func (m *Monitor) StartMining() error {
 	return m.eth.StartMining(runtime.NumCPU())
 }
 
+// stop geth miner
 func (m *Monitor) StopMining() {
 	m.eth.StopMining()
 }
@@ -174,7 +155,6 @@ Mining Utilities
 */
 // mine until certain amount of blocks
 func (m *Monitor) MineBlocks(count int64) error {
-	log.Info("New mining task", "task", fmt.Sprintf("MineBlocks(%d)", count))
 	task := NewBudgetTask(m.eth, count)
 	m.setCurrent(task)
 	err := m.StartMining()
@@ -185,7 +165,6 @@ func (m *Monitor) MineBlocks(count int64) error {
 }
 
 func (m *Monitor) MineBlocksWithoutTx(count int64) error {
-	log.Info("New mining task", "task", fmt.Sprintf("MineBlocksWithoutTx(%d)", count))
 	task := NewBudgetWithoutTxTask(m.eth, count)
 	m.setCurrent(task)
 	err := m.StartMining()
@@ -196,7 +175,6 @@ func (m *Monitor) MineBlocksWithoutTx(count int64) error {
 }
 
 func (m *Monitor) MineBlocksExceptTx(count int64, txHash string) error {
-	log.Info("New mining task", "task", fmt.Sprintf("MineBlocksExceptTx(%d, %s)", count, txHash))
 	task := NewBudgetExceptTxTask(m.eth, count, txHash)
 	m.setCurrent(task)
 	err := m.StartMining()
@@ -206,47 +184,37 @@ func (m *Monitor) MineBlocksExceptTx(count int64, txHash string) error {
 	return nil
 }
 
-// mine block with time interval
+// stop daemon mining task if currentTask is daemon
+// this function is call from outside monitor to stop current running daemon mining task
+func (m *Monitor) StopDaemonMiningTask() {
+	if daemonTask, ok := m.currentTask.(DaemonTask); ok {
+		daemonTask.Stop()
+	}
+}
+
+// mine block with time interval (daemon task)
 func (m *Monitor) MineBlockInterval(interval uint) error {
-	log.Info("New mining task", "task", fmt.Sprintf("MineBlockInterval(%d)", interval))
-	m.intervalTask = NewIntervalTask(m.eth, interval)
-	m.setCurrent(m.intervalTask)
+	var intervalTask DaemonTask = NewIntervalTask(m.eth, interval)
+	m.setCurrent(intervalTask)
 	err := m.StartMining()
 	if err != nil {
 		return err
 	}
 	return nil
-}
-
-// stop mining block with time interval
-func (m *Monitor) StopMiningBlockInterval() {
-	if m.intervalTask != nil {
-		m.intervalTask.Stop()
-		m.intervalTask = nil
-	}
 }
 
 func (m *Monitor) MineWhenTx() error {
-	log.Info("New mining task", "task", fmt.Sprintf("MineWhenTx()"))
-	m.txMonitorTask = NewTxMonitorTask(m.eth.TxPool())
-	m.setCurrent(m.txMonitorTask)
+	var txMonitorTask DaemonTask = NewTxMonitorTask(m.eth.TxPool())
+	m.setCurrent(txMonitorTask)
 	err := m.StartMining()
 	if err != nil {
 		return err
 	}
 	return nil
-}
-
-func (m *Monitor) StopMiningWhenTx() {
-	if m.txMonitorTask != nil {
-		m.txMonitorTask.Stop()
-		m.txMonitorTask = nil
-	}
 }
 
 // mine a certain tx, stop if tx does not exist
 func (m *Monitor) MineTx(txHash common.Hash) error {
-	log.Info("New mining task", "task", fmt.Sprintf("MineTx(%s)", txHash))
 	if tx, _, _, _ := rawdb.ReadTransaction(m.eth.ChainDb(), txHash); tx != nil {
 		// the tx has already been executed/mined
 		log.Warn("transaction has already been executed", "tx", txHash)
@@ -268,7 +236,6 @@ func (m *Monitor) MineTx(txHash common.Hash) error {
 
 // mine until Td is larger than the given td
 func (m *Monitor) MineTd(td *big.Int) error {
-	log.Info("New mining task", "task", fmt.Sprintf("MineTd(%s)", td.String()))
 	task := NewTdTask(m.eth, td)
 	m.setCurrent(task)
 	err := m.StartMining()

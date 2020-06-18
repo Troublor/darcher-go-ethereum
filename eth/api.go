@@ -117,7 +117,7 @@ func (api *PrivateMinerAPI) MineBlockInterval(interval uint) (string, error) {
 }
 
 func (api *PrivateMinerAPI) StopMiningBlockInterval() (string, error) {
-	api.e.miner.Monitor.StopMiningBlockInterval()
+	api.e.miner.Monitor.StopDaemonMiningTask()
 	return fmt.Sprintf("stop mining block with time interval"), nil
 }
 
@@ -127,7 +127,7 @@ func (api *PrivateMinerAPI) MineWhenTx() (string, error) {
 }
 
 func (api *PrivateMinerAPI) StopMiningWhenTx() (string, error) {
-	api.e.miner.Monitor.StopMiningWhenTx()
+	api.e.miner.Monitor.StopDaemonMiningTask()
 	return fmt.Sprintf("stop mining block when there are txs in txPool"), nil
 }
 

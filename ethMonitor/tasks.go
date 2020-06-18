@@ -1,6 +1,8 @@
 package ethMonitor
 
 import (
+	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
@@ -22,11 +24,20 @@ func NewBudgetTask(eth Ethereum, budget int64) *BudgetTask {
 	}
 }
 
-func (m *BudgetTask) ShouldContinue() bool {
-	return m.eth.BlockChain().CurrentBlock().Number().Cmp(m.targetBlockNumber) < 0
+func (t *BudgetTask) ShouldContinue() bool {
+	return t.eth.BlockChain().CurrentBlock().Number().Cmp(t.targetBlockNumber) < 0
+}
+
+func (t *BudgetTask) String() string {
+	return fmt.Sprintf("BudgetTask(%d)", t.targetBlockNumber.Int64())
+}
+
+func (t *BudgetTask) IsTxAllowed(txHash common.Hash) bool {
+	return true
 }
 
 // BudgetTask is used to control miner to mine according to a budget
+// do not allow any txs
 type BudgetWithoutTxTask struct {
 	eth               Ethereum
 	targetBlockNumber *big.Int
@@ -39,11 +50,20 @@ func NewBudgetWithoutTxTask(eth Ethereum, budget int64) *BudgetWithoutTxTask {
 	}
 }
 
-func (m *BudgetWithoutTxTask) ShouldContinue() bool {
-	return m.eth.BlockChain().CurrentBlock().Number().Cmp(m.targetBlockNumber) < 0
+func (t *BudgetWithoutTxTask) ShouldContinue() bool {
+	return t.eth.BlockChain().CurrentBlock().Number().Cmp(t.targetBlockNumber) < 0
+}
+
+func (t *BudgetWithoutTxTask) String() string {
+	return fmt.Sprintf("BudgetWithoutTxTask(%d)", t.targetBlockNumber.Int64())
+}
+
+func (t *BudgetWithoutTxTask) IsTxAllowed(txHash common.Hash) bool {
+	return false
 }
 
 // BudgetTask is used to control miner to mine according to a budget
+// allowing all txs but one specified tx
 type BudgetExceptTxTask struct {
 	eth               Ethereum
 	targetBlockNumber *big.Int
@@ -58,8 +78,16 @@ func NewBudgetExceptTxTask(eth Ethereum, budget int64, txHash string) *BudgetExc
 	}
 }
 
-func (m *BudgetExceptTxTask) ShouldContinue() bool {
-	return m.eth.BlockChain().CurrentBlock().Number().Cmp(m.targetBlockNumber) < 0
+func (t *BudgetExceptTxTask) ShouldContinue() bool {
+	return t.eth.BlockChain().CurrentBlock().Number().Cmp(t.targetBlockNumber) < 0
+}
+
+func (t *BudgetExceptTxTask) String() string {
+	return fmt.Sprintf("BudgetExceptTxTask(%d, %s)", t.targetBlockNumber.Int64(), PrettifyHash(t.txHash))
+}
+
+func (t *BudgetExceptTxTask) IsTxAllowed(txHash common.Hash) bool {
+	return t.txHash != txHash.String()
 }
 
 // IntervalTask is used to repeatedly mine blocks with time interval
@@ -84,23 +112,31 @@ func NewIntervalTask(eth Ethereum, interval uint) *IntervalTask {
 
 }
 
-func (m *IntervalTask) ShouldContinue() bool {
-	bn := m.eth.BlockChain().CurrentBlock().Number()
-	if bn.Cmp(m.currentBlockNumber) == 0 {
+func (t *IntervalTask) ShouldContinue() bool {
+	bn := t.eth.BlockChain().CurrentBlock().Number()
+	if bn.Cmp(t.currentBlockNumber) == 0 {
 		return true
 	}
 	select {
-	case <-m.clock:
-		m.clock = time.After(time.Duration(m.interval) * time.Millisecond)
-		m.currentBlockNumber = m.eth.BlockChain().CurrentBlock().Number()
+	case <-t.clock:
+		t.clock = time.After(time.Duration(t.interval) * time.Millisecond)
+		t.currentBlockNumber = t.eth.BlockChain().CurrentBlock().Number()
 		return true
-	case <-m.stopCh:
+	case <-t.stopCh:
 		return false
 	}
 }
 
-func (m *IntervalTask) Stop() {
-	close(m.stopCh)
+func (t *IntervalTask) Stop() {
+	close(t.stopCh)
+}
+
+func (t *IntervalTask) IsTxAllowed(txHash common.Hash) bool {
+	return true
+}
+
+func (t *IntervalTask) String() string {
+	return fmt.Sprintf("IntervalTask(%d)", t.interval)
 }
 
 // TxMonitorTask is a forever running task which mines blocks whenever there are tasks in txpool
@@ -123,14 +159,14 @@ func NewTxMonitorTask(txPool *core.TxPool) *TxMonitorTask {
 	return task
 }
 
-func (m *TxMonitorTask) ShouldContinue() bool {
+func (t *TxMonitorTask) ShouldContinue() bool {
 	select {
-	case <-m.stopCh:
+	case <-t.stopCh:
 		return false
 	default:
-		txs, err := m.txPool.Pending()
+		txs, err := t.txPool.Pending()
 		if err != nil {
-			m.Stop()
+			t.Stop()
 			log.Error("retrieving tx from txPool error", "err", err)
 			return false
 		} else {
@@ -138,7 +174,7 @@ func (m *TxMonitorTask) ShouldContinue() bool {
 			out:
 				for {
 					select {
-					case <-m.txCh:
+					case <-t.txCh:
 					default:
 						break out
 					}
@@ -147,10 +183,10 @@ func (m *TxMonitorTask) ShouldContinue() bool {
 				return true
 			} else {
 				select {
-				case <-m.txCh:
+				case <-t.txCh:
 					time.Sleep(500 * time.Millisecond)
 					return true
-				case <-m.stopCh:
+				case <-t.stopCh:
 					return false
 				}
 			}
@@ -158,9 +194,17 @@ func (m *TxMonitorTask) ShouldContinue() bool {
 	}
 }
 
-func (m *TxMonitorTask) Stop() {
-	close(m.stopCh)
-	m.txSub.Unsubscribe()
+func (t *TxMonitorTask) Stop() {
+	close(t.stopCh)
+	t.txSub.Unsubscribe()
+}
+
+func (t *TxMonitorTask) IsTxAllowed(txHash common.Hash) bool {
+	return true
+}
+
+func (t *TxMonitorTask) String() string {
+	return fmt.Sprintf("TxMonitorTask()")
 }
 
 // TxExecuteTask is used to control miner to execute a transaction
@@ -176,10 +220,20 @@ func NewTxExecuteTask(eth Ethereum, targetTransaction *types.Transaction) *TxExe
 	}
 }
 
-func (m *TxExecuteTask) ShouldContinue() bool {
-	return m.eth.TxPool().Get(m.targetTransaction.Hash()) != nil
+func (t *TxExecuteTask) ShouldContinue() bool {
+	return t.eth.TxPool().Get(t.targetTransaction.Hash()) != nil
 }
 
+func (t *TxExecuteTask) IsTxAllowed(txHash common.Hash) bool {
+	return t.targetTransaction.Hash() == txHash
+}
+
+func (t *TxExecuteTask) String() string {
+	return fmt.Sprintf("TxExecuteTask(%s)", PrettifyHash(t.targetTransaction.Hash().String()))
+}
+
+// a mining task to mine until total difficulty being larger than the given Td
+// no tx is allowed
 type TdTask struct {
 	eth      Ethereum
 	targetTd *big.Int
@@ -192,9 +246,17 @@ func NewTdTask(eth Ethereum, targetTd *big.Int) *TdTask {
 	}
 }
 
-func (m *TdTask) ShouldContinue() bool {
-	bc := m.eth.BlockChain()
+func (t *TdTask) ShouldContinue() bool {
+	bc := t.eth.BlockChain()
 	td := bc.GetTdByHash(bc.CurrentBlock().Hash())
-	log.Info("TdTask", "td", td, "target", m.targetTd)
-	return td.Cmp(m.targetTd) <= 0
+	log.Info("TdTask", "td", td, "target", t.targetTd)
+	return td.Cmp(t.targetTd) <= 0
+}
+
+func (t *TdTask) IsTxAllowed(txHash common.Hash) bool {
+	return false
+}
+
+func (t *TdTask) String() string {
+	return fmt.Sprintf("TdTask(%d)", t.targetTd.Int64())
 }

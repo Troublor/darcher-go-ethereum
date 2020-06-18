@@ -1,6 +1,8 @@
 package ethMonitor
 
 import (
+	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/p2p"
@@ -24,6 +26,13 @@ type Stoppable interface {
 
 type Task interface {
 	ShouldContinue() bool
+	fmt.Stringer
+	IsTxAllowed(txHash common.Hash) bool
+}
+
+type DaemonTask interface {
+	Task
+	Stoppable
 }
 
 type ProtocolManager interface {
