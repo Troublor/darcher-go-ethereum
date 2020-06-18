@@ -97,6 +97,11 @@ func (f *Feed) typecheck(typ reflect.Type) bool {
 		f.etype = typ
 		return true
 	}
+	// TODO troublor modify starts: check interface type
+	if f.etype.Kind() == reflect.Interface {
+		return typ.Implements(f.etype)
+	}
+	// troublor modify ends
 	return f.etype == typ
 }
 
