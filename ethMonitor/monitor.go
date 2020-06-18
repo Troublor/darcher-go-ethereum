@@ -174,6 +174,7 @@ Mining Utilities
 */
 // mine until certain amount of blocks
 func (m *Monitor) MineBlocks(count int64) error {
+	log.Info("New mining task", "task", fmt.Sprintf("MineBlocks(%d)", count))
 	task := NewBudgetTask(m.eth, count)
 	m.setCurrent(task)
 	err := m.StartMining()
@@ -184,6 +185,7 @@ func (m *Monitor) MineBlocks(count int64) error {
 }
 
 func (m *Monitor) MineBlocksWithoutTx(count int64) error {
+	log.Info("New mining task", "task", fmt.Sprintf("MineBlocksWithoutTx(%d)", count))
 	task := NewBudgetWithoutTxTask(m.eth, count)
 	m.setCurrent(task)
 	err := m.StartMining()
@@ -194,6 +196,7 @@ func (m *Monitor) MineBlocksWithoutTx(count int64) error {
 }
 
 func (m *Monitor) MineBlocksExceptTx(count int64, txHash string) error {
+	log.Info("New mining task", "task", fmt.Sprintf("MineBlocksExceptTx(%d, %s)", count, txHash))
 	task := NewBudgetExceptTxTask(m.eth, count, txHash)
 	m.setCurrent(task)
 	err := m.StartMining()
@@ -205,6 +208,7 @@ func (m *Monitor) MineBlocksExceptTx(count int64, txHash string) error {
 
 // mine block with time interval
 func (m *Monitor) MineBlockInterval(interval uint) error {
+	log.Info("New mining task", "task", fmt.Sprintf("MineBlockInterval(%d)", interval))
 	m.intervalTask = NewIntervalTask(m.eth, interval)
 	m.setCurrent(m.intervalTask)
 	err := m.StartMining()
@@ -223,6 +227,7 @@ func (m *Monitor) StopMiningBlockInterval() {
 }
 
 func (m *Monitor) MineWhenTx() error {
+	log.Info("New mining task", "task", fmt.Sprintf("MineWhenTx()"))
 	m.txMonitorTask = NewTxMonitorTask(m.eth.TxPool())
 	m.setCurrent(m.txMonitorTask)
 	err := m.StartMining()
@@ -241,6 +246,7 @@ func (m *Monitor) StopMiningWhenTx() {
 
 // mine a certain tx, stop if tx does not exist
 func (m *Monitor) MineTx(txHash common.Hash) error {
+	log.Info("New mining task", "task", fmt.Sprintf("MineTx(%s)", txHash))
 	if tx, _, _, _ := rawdb.ReadTransaction(m.eth.ChainDb(), txHash); tx != nil {
 		// the tx has already been executed/mined
 		log.Warn("transaction has already been executed", "tx", txHash)
@@ -262,6 +268,7 @@ func (m *Monitor) MineTx(txHash common.Hash) error {
 
 // mine until Td is larger than the given td
 func (m *Monitor) MineTd(td *big.Int) error {
+	log.Info("New mining task", "task", fmt.Sprintf("MineTd(%s)", td.String()))
 	task := NewTdTask(m.eth, td)
 	m.setCurrent(task)
 	err := m.StartMining()
@@ -330,7 +337,7 @@ func (m *Monitor) notifyNewChainHead(block *types.Block) {
 	if m.client == nil {
 		return
 	}
-	txHashes := make([]string, 1)
+	txHashes := make([]string, 0)
 	for _, tx := range block.Transactions() {
 		txHashes = append(txHashes, tx.Hash().Hex())
 	}
@@ -367,7 +374,7 @@ func (m *Monitor) notifyNewChainSide(block *types.Block) {
 	if m.client == nil {
 		return
 	}
-	txHashes := make([]string, 1)
+	txHashes := make([]string, 0)
 	for _, tx := range block.Transactions() {
 		txHashes = append(txHashes, tx.Hash().Hex())
 	}
