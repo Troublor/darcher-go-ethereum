@@ -1575,7 +1575,7 @@ func RegisterEthServiceWithMonitor(stack *node.Node, cfg *eth.Config, monitor *e
 		err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
 			fullNode, err := eth.NewWithMonitor(ctx, cfg, monitor)
 			// at this point, eth has finished initialization
-			monitor.Start()
+			monitor.StartMonitoring()
 			if fullNode != nil && cfg.LightServ > 0 {
 				ls, _ := les.NewLesServer(fullNode, cfg)
 				fullNode.AddLesServer(ls)
