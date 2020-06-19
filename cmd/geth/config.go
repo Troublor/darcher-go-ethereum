@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/ethMonitor"
-	"math/big"
 	"os"
 	"reflect"
 	"unicode"
@@ -146,14 +145,9 @@ func enableWhisper(ctx *cli.Context) bool {
 	return false
 }
 
+// TODO troublor modify starts
 func makeFullNodeWithMonitor(ctx *cli.Context, monitor *ethMonitor.Monitor) *node.Node {
 	stack, cfg := makeConfigNode(ctx)
-	if ctx.GlobalIsSet(utils.OverrideIstanbulFlag.Name) {
-		cfg.Eth.OverrideIstanbul = new(big.Int).SetUint64(ctx.GlobalUint64(utils.OverrideIstanbulFlag.Name))
-	}
-	if ctx.GlobalIsSet(utils.OverrideMuirGlacierFlag.Name) {
-		cfg.Eth.OverrideMuirGlacier = new(big.Int).SetUint64(ctx.GlobalUint64(utils.OverrideMuirGlacierFlag.Name))
-	}
 	// TODO troublor modify
 	monitor.SetNode(stack)
 	utils.RegisterEthServiceWithMonitor(stack, &cfg.Eth, monitor)
@@ -184,6 +178,8 @@ func makeFullNodeWithMonitor(ctx *cli.Context, monitor *ethMonitor.Monitor) *nod
 	}
 	return stack
 }
+
+// troublor modify ends
 
 func makeFullNode(ctx *cli.Context) *node.Node {
 	stack, cfg := makeConfigNode(ctx)

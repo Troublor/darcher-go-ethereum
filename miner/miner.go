@@ -84,7 +84,7 @@ func New(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *even
 	return miner
 }
 
-// TODO troublor modify
+// TODO troublor modify starts
 func NewMinerWithMonitor(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine, isLocalBlock func(block *types.Block) bool, monitor *ethMonitor.Monitor) *Miner {
 	miner := &Miner{
 		eth:      eth,
@@ -101,6 +101,8 @@ func NewMinerWithMonitor(eth Backend, config *Config, chainConfig *params.ChainC
 
 	return miner
 }
+
+// troublor modify ends
 
 // update keeps track of the downloader events. Please be aware that this is a one shot type of update loop.
 // It's entered once and as soon as `Done` or `Failed` has been broadcasted the events are unregistered and

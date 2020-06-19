@@ -240,12 +240,14 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 	return worker
 }
 
-// TODO troublor modify
+// TODO troublor modify starts
 func NewWorkerWithMonitor(config *Config, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, isLocalBlock func(*types.Block) bool, init bool, monitor *ethMonitor.Monitor) *worker {
 	w := newWorker(config, chainConfig, engine, eth, mux, isLocalBlock, init)
 	w.monitor = monitor
 	return w
 }
+
+// troublor modify ends
 
 // setEtherbase sets the etherbase used to initialize the block coinbase field.
 func (w *worker) setEtherbase(addr common.Address) {

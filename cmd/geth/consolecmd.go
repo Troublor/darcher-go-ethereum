@@ -99,8 +99,7 @@ func localConsole(ctx *cli.Context) error {
 		startNode(ctx, node)
 		monitor.NotifyNodeStart(node)
 	}
-	//node := makeFullNode(ctx)
-	//startNode(ctx, node)
+	// troublor modify ends
 	defer node.Close()
 
 	// Attach to the newly started node and start the JavaScript console
