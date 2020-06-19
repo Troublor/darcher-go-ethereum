@@ -4,24 +4,21 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/phayes/freeport"
-	"math/big"
-	"net/rpc"
 	"runtime"
 	"strings"
 )
 
 type Monitor struct {
-	role        Role
-	client      *rpc.Client
-	serverPort  int
-	monitorPort int
+	role           Role
+	client         *Client // used to communicate with ethMonitor
+	server         *Server // used to receive control message from ethMonitor
+	serverPort     int
+	ethMonitorPort int
 
 	// a feed for every new Task
 	newTaskFeed event.Feed
@@ -56,12 +53,28 @@ func NewMonitor(role Role, monitorPort int) *Monitor {
 	} else {
 		scheduler = newTxScheduler()
 	}
-	return &Monitor{
-		role:        role,
-		serverPort:  port,
-		monitorPort: monitorPort,
-		txScheduler: scheduler,
+	m := &Monitor{
+		role:           role,
+		ethMonitorPort: monitorPort,
+		txScheduler:    scheduler,
+		serverPort:     port,
 	}
+	return m
+}
+
+func (m *Monitor) StartMonitoring() {
+	if m.ethMonitorPort == 0 {
+		return
+	}
+	// start Monitor server to handle control message from ethMonitor
+	m.server = NewServer(m, m.serverPort)
+	// connect to ethMonitor as a client
+	m.client = NewClient(m, m.ethMonitorPort)
+
+	go m.listenChainHeadLoop()
+	go m.listenNewTxsLoop()
+	go m.listenChainSideLoop()
+	go m.listenPeerEventLoop()
 }
 
 func (m *Monitor) SetEth(eth Ethereum) {
@@ -82,7 +95,7 @@ func (m *Monitor) SetProtocolManager(pm ProtocolManager) {
 
 func (m *Monitor) setCurrentTask(task Task) {
 	// should stop persistent tasks (e.g TxMonitorTask, IntervalTask)
-	m.StopDaemonMiningTask()
+	m.StopMiningTask()
 
 	// set new task
 	m.currentTask = task
@@ -122,150 +135,36 @@ func (m *Monitor) IsTxAllowed(hash common.Hash) bool {
 	return m.currentTask.IsTxAllowed(hash)
 }
 
-func (m *Monitor) Start() {
-	// connect to rpc server
-	client, err := rpc.DialHTTP("tcp", fmt.Sprintf("127.0.0.1:%d", m.monitorPort))
-	if err != nil {
-		log.Error("failed to connect to rpc server", "err", err.Error())
-		return
-	}
-	m.client = client
-	go m.listenChainHeadLoop()
-	go m.listenNewTxsLoop()
-	go m.listenChainSideLoop()
-	go m.listenPeerEventLoop()
-	m.startMonitorRpcServer()
-}
-
 func (m *Monitor) NotifyNodeStart(node *node.Node) {
-	if m.client == nil {
-		return
-	}
-	currentBlock := m.eth.BlockChain().CurrentBlock()
-	arg := &NodeStartMsg{
-		Role:        m.role,
-		ServerPort:  m.serverPort,
-		URL:         node.Server().NodeInfo().Enode,
-		BlockNumber: currentBlock.NumberU64(),
-		BlockHash:   currentBlock.Hash().Hex(),
-		Td:          m.eth.BlockChain().GetTdByHash(currentBlock.Hash()).Uint64(),
-	}
-	reply := &Reply{}
-	err := m.client.Call("Server.OnNodeStartRPC", arg, reply)
-	if err != nil {
-		log.Error("RPC Call NotifyNodeStart error", "err", err.Error())
-	}
-	if reply.Err != nil {
-		log.Error("NotifyNodeStart error", "err", reply.Err.Error())
+	if m.client != nil {
+		m.client.NotifyNodeStart(node, m.role, m.serverPort)
 	}
 }
 
-// start geth miner
-func (m *Monitor) StartMining() error {
+func (m *Monitor) AssignMiningTask(task Task) error {
+	// should stop persistent tasks (e.g TxMonitorTask, IntervalTask)
+	m.StopMiningTask()
+
+	// set new task
+	m.currentTask = task
+	m.newTaskFeed.Send(task)
+	log.Info("New mining task", "task", task.String())
 	return m.eth.StartMining(runtime.NumCPU())
-}
-
-// stop geth miner
-func (m *Monitor) StopMining() {
-	m.eth.StopMining()
-
-	// set currentTask to be nil
-	m.currentTask = nil
-}
-
-/*
-Mining Utilities
-*/
-// mine until certain amount of blocks
-func (m *Monitor) MineBlocks(count int64) error {
-	task := NewBudgetTask(m.eth, count)
-	m.setCurrentTask(task)
-	err := m.StartMining()
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (m *Monitor) MineBlocksWithoutTx(count int64) error {
-	task := NewBudgetWithoutTxTask(m.eth, count)
-	m.setCurrentTask(task)
-	err := m.StartMining()
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (m *Monitor) MineBlocksExceptTx(count int64, txHash string) error {
-	task := NewBudgetExceptTxTask(m.eth, count, txHash)
-	m.setCurrentTask(task)
-	err := m.StartMining()
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 // stop daemon mining task if currentTask is daemon
 // this function is call from outside monitor to stop current running daemon mining task
-func (m *Monitor) StopDaemonMiningTask() {
+func (m *Monitor) StopMiningTask() {
 	if daemonTask, ok := m.currentTask.(DaemonTask); ok {
 		daemonTask.Stop()
 	}
-}
-
-// mine block with time interval (daemon task)
-func (m *Monitor) MineBlockInterval(interval uint) error {
-	var intervalTask DaemonTask = NewIntervalTask(m.eth, interval)
-	m.setCurrentTask(intervalTask)
-	err := m.StartMining()
-	if err != nil {
-		return err
+	// tell eth to stop mining
+	m.eth.StopMining()
+	// set currentTask to be nil
+	if m.currentTask != nil && m.currentTask != NilTask {
+		log.Info("Stopped mining task", "task", m.currentTask.String())
 	}
-	return nil
-}
-
-func (m *Monitor) MineWhenTx() error {
-	var txMonitorTask DaemonTask = NewTxMonitorTask(m.eth, m.eth.TxPool())
-	m.setCurrentTask(txMonitorTask)
-	err := m.StartMining()
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// mine a certain tx, stop if tx does not exist
-func (m *Monitor) MineTx(txHash common.Hash) error {
-	if tx, _, _, _ := rawdb.ReadTransaction(m.eth.ChainDb(), txHash); tx != nil {
-		// the tx has already been executed/mined
-		log.Warn("transaction has already been executed", "tx", txHash)
-		return nil
-	}
-	tx := m.eth.TxPool().Get(txHash)
-	if tx == nil {
-		// the tx is not in the txPool
-		return fmt.Errorf("tx does not exist: %s", txHash.Hex())
-	}
-	task := NewTxExecuteTask(m.eth, tx)
-	m.setCurrentTask(task)
-	err := m.StartMining()
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// mine until Td is larger than the given td
-func (m *Monitor) MineTd(td *big.Int) error {
-	task := NewTdTask(m.eth, td)
-	m.setCurrentTask(task)
-	err := m.StartMining()
-	if err != nil {
-		return err
-	}
-	return nil
+	m.currentTask = NilTask
 }
 
 /*
@@ -283,25 +182,12 @@ func (m *Monitor) listenNewTxsLoop() {
 		case ev := <-txsCh:
 			for _, tx := range ev.Txs {
 				// EthMonitor on the remote side should be notified of each tx
-				m.notifyNewTx(tx)
+				if m.client != nil {
+					m.client.NotifyNewTx(tx, m.role)
+				}
 			}
 		}
 
-	}
-}
-
-func (m *Monitor) notifyNewTx(tx *types.Transaction) {
-	if m.client == nil {
-		return
-	}
-	arg := &NewTxMsg{Role: m.role, Hash: tx.Hash().Hex()}
-	reply := &Reply{}
-	err := m.client.Call("Server.OnNewTxRPC", arg, reply)
-	if err != nil {
-		log.Error("RPC Call notifyNewTx error", "err", err.Error())
-	}
-	if reply.Err != nil {
-		log.Error("notifyNewTx error", "err", reply.Err.Error())
 	}
 }
 
@@ -318,27 +204,10 @@ func (m *Monitor) listenChainHeadLoop() {
 		case <-chainHeadSub.Err():
 			return
 		case ev := <-chainHeadCh:
-			m.notifyNewChainHead(ev.Block)
+			if m.client != nil {
+				m.client.NotifyNewChainHead(ev.Block, m.role)
+			}
 		}
-	}
-}
-
-func (m *Monitor) notifyNewChainHead(block *types.Block) {
-	if m.client == nil {
-		return
-	}
-	txHashes := make([]string, 0)
-	for _, tx := range block.Transactions() {
-		txHashes = append(txHashes, tx.Hash().Hex())
-	}
-	arg := &NewChainHeadMsg{Role: m.role, Hash: block.Hash().Hex(), Number: block.NumberU64(), Td: m.eth.BlockChain().GetTdByHash(block.Hash()).Uint64(), Txs: txHashes}
-	reply := &Reply{}
-	err := m.client.Call("Server.OnNewChainHeadRPC", arg, reply)
-	if err != nil {
-		log.Error("RPC Call notifyNewChainHead error", "err", err.Error())
-	}
-	if reply.Err != nil {
-		log.Error("notifyNewChainHead error", "err", reply.Err.Error())
 	}
 }
 
@@ -355,27 +224,10 @@ func (m *Monitor) listenChainSideLoop() {
 		case <-chainSideSub.Err():
 			return
 		case ev := <-chainSideCh:
-			m.notifyNewChainSide(ev.Block)
+			if m.client != nil {
+				m.client.NotifyNewChainSide(ev.Block, m.role)
+			}
 		}
-	}
-}
-
-func (m *Monitor) notifyNewChainSide(block *types.Block) {
-	if m.client == nil {
-		return
-	}
-	txHashes := make([]string, 0)
-	for _, tx := range block.Transactions() {
-		txHashes = append(txHashes, tx.Hash().Hex())
-	}
-	arg := &NewChainSideMsg{Role: m.role, Hash: block.Hash().Hex(), Number: block.NumberU64(), Td: m.eth.BlockChain().GetTdByHash(block.Hash()).Uint64(), Txs: txHashes}
-	reply := &Reply{}
-	err := m.client.Call("Server.OnNewChainSideRPC", arg, reply)
-	if err != nil {
-		log.Error("RPC Call notifyNewChainSide error", "err", err.Error())
-	}
-	if reply.Err != nil {
-		log.Error("notifyNewChainSide error", "err", reply.Err.Error())
 	}
 }
 
@@ -394,41 +246,15 @@ func (m *Monitor) listenPeerEventLoop() {
 		case ev := <-peerCh:
 			if ev.Type == p2p.PeerEventTypeAdd {
 				log.Info("Peer added success")
-				m.notifyPeerAdd(ev)
+				if m.client != nil {
+					m.client.NotifyPeerAdd(ev, m.role)
+				}
 			} else if ev.Type == p2p.PeerEventTypeDrop {
 				log.Info("Peer removed success")
-				m.notifyPeerDrop(ev)
+				if m.client != nil {
+					m.client.NotifyPeerDrop(ev, m.role)
+				}
 			}
 		}
-	}
-}
-
-func (m *Monitor) notifyPeerAdd(ev *p2p.PeerEvent) {
-	if m.client == nil {
-		return
-	}
-	arg := &PeerAddMsg{Role: m.role, PeerID: ev.Peer.String()}
-	reply := &Reply{}
-	err := m.client.Call("Server.OnPeerAddRPC", arg, reply)
-	if err != nil {
-		log.Error("RPC Call notifyPeerAdd error", "err", err.Error())
-	}
-	if reply.Err != nil {
-		log.Error("notifyPeerAdd error", "err", reply.Err.Error())
-	}
-}
-
-func (m *Monitor) notifyPeerDrop(ev *p2p.PeerEvent) {
-	if m.client == nil {
-		return
-	}
-	arg := &PeerRemoveMsg{Role: m.role, PeerID: ev.Peer.String()}
-	reply := &Reply{}
-	err := m.client.Call("Server.OnPeerRemoveRPC", arg, reply)
-	if err != nil {
-		log.Error("RPC Call notifyPeerDrop error", "err", err.Error())
-	}
-	if reply.Err != nil {
-		log.Error("notifyPeerDrop error", "err", reply.Err.Error())
 	}
 }

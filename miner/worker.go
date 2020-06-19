@@ -641,8 +641,10 @@ func (w *worker) resultLoop() {
 			if w.monitor != nil {
 				select {
 				case <-w.monitor.GetCurrentTask().TargetAchievedCh():
-					w.monitor.StopMining()
-					log.Info("Mining target achieved, stop mining", "task", w.monitor.GetCurrentTask().String())
+					if w.monitor.GetCurrentTask() != ethMonitor.NilTask {
+						log.Info("Mining target achieved, stop mining", "task", w.monitor.GetCurrentTask().String())
+					}
+					w.monitor.StopMiningTask()
 					continue
 				default:
 				}
@@ -961,7 +963,21 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	//}
 	// troublor modify ends
 
-	// TODO troublor modify start: instrument OnNewMiningWork hook
+	// TODO troublor modify starts: return when mining task target achieved
+	if w.monitor != nil {
+		select {
+		case <-w.monitor.GetCurrentTask().TargetAchievedCh():
+			if w.monitor.GetCurrentTask() != ethMonitor.NilTask {
+				log.Info("Mining target achieved, stop mining", "task", w.monitor.GetCurrentTask().String())
+			}
+			w.monitor.StopMiningTask()
+			return
+		default:
+		}
+	}
+	// troublor modify ends
+
+	// TODO troublor modify starts: instrument OnNewMiningWork hook
 	if w.monitor != nil {
 		w.monitor.GetCurrentTask().OnNewMiningWork()
 	}
@@ -1093,8 +1109,10 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 		if w.monitor != nil {
 			select {
 			case <-w.monitor.GetCurrentTask().TargetAchievedCh():
-				w.monitor.StopMining()
-				log.Info("Mining target achieved, stop mining", "task", w.monitor.GetCurrentTask().String())
+				if w.monitor.GetCurrentTask() != ethMonitor.NilTask {
+					log.Info("Mining target achieved, stop mining", "task", w.monitor.GetCurrentTask().String())
+				}
+				w.monitor.StopMiningTask()
 			default:
 			}
 		}

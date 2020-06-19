@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/ethMonitor"
 	"io"
 	"math/big"
 	"os"
@@ -102,40 +103,52 @@ func NewPrivateMinerAPI(e *Ethereum) *PrivateMinerAPI {
 	return &PrivateMinerAPI{e: e}
 }
 
-// TODO troublor modify
+// TODO troublor modify starts
 func (api *PrivateMinerAPI) MineBlocks(budget uint64) (string, error) {
-	err := api.e.miner.Monitor.MineBlocks(int64(budget))
+	if api.e.miner.Monitor == nil {
+		return "", fmt.Errorf("miner.mineBlocks() is disabled when monitor is disabled")
+	}
+	task := ethMonitor.NewBudgetTask(api.e, int64(budget))
+	err := api.e.miner.Monitor.AssignMiningTask(task)
 	return fmt.Sprintf("mine %d blocks", budget), err
 }
 
 func (api *PrivateMinerAPI) MineBlockInterval(interval uint) (string, error) {
-	if interval <= 0 {
-		return fmt.Sprintf("invalid value of time interval %d", interval), nil
+	if api.e.miner.Monitor == nil {
+		return "", fmt.Errorf("miner.mineBlocks() is disabled when monitor is disabled")
 	}
-	err := api.e.miner.Monitor.MineBlockInterval(interval)
+	if interval <= 0 {
+		return "", fmt.Errorf("invalid value of time interval %d", interval)
+	}
+	task := ethMonitor.NewIntervalTask(api.e, interval)
+	err := api.e.miner.Monitor.AssignMiningTask(task)
 	return fmt.Sprintf("mine block with time interval %dms", interval), err
 }
 
-func (api *PrivateMinerAPI) StopMiningBlockInterval() (string, error) {
-	api.e.miner.Monitor.StopDaemonMiningTask()
-	return fmt.Sprintf("stop mining block with time interval"), nil
-}
-
 func (api *PrivateMinerAPI) MineWhenTx() (string, error) {
-	err := api.e.miner.Monitor.MineWhenTx()
+	if api.e.miner.Monitor == nil {
+		return "", fmt.Errorf("miner.mineBlocks() is disabled when monitor is disabled")
+	}
+	task := ethMonitor.NewTxMonitorTask(api.e, api.e.txPool)
+	err := api.e.miner.Monitor.AssignMiningTask(task)
 	return fmt.Sprintf("mine block when there are txs in txPool"), err
 }
 
-func (api *PrivateMinerAPI) StopMiningWhenTx() (string, error) {
-	api.e.miner.Monitor.StopDaemonMiningTask()
-	return fmt.Sprintf("stop mining block when there are txs in txPool"), nil
-}
-
-// TODO troublor modify
 func (api *PrivateMinerAPI) MineTx(txHash common.Hash) (string, error) {
-	err := api.e.miner.Monitor.MineTx(txHash)
+	if api.e.miner.Monitor == nil {
+		return "", fmt.Errorf("miner.mineBlocks() is disabled when monitor is disabled")
+	}
+	tx := api.e.txPool.Get(txHash)
+	if tx == nil {
+		// the tx is not in the txPool
+		return "", fmt.Errorf("tx does not exist: %s", txHash.Hex())
+	}
+	task := ethMonitor.NewTxExecuteTask(api.e, tx)
+	err := api.e.miner.Monitor.AssignMiningTask(task)
 	return fmt.Sprintf("mine transaction %s", txHash.Hex()), err
 }
+
+// troublor modify ends
 
 // Start starts the miner with the given number of threads. If threads is nil,
 // the number of workers started is equal to the number of logical CPUs that are
@@ -143,6 +156,12 @@ func (api *PrivateMinerAPI) MineTx(txHash common.Hash) (string, error) {
 // number of threads allowed to use and updates the minimum price required by the
 // transaction pool.
 func (api *PrivateMinerAPI) Start(threads *int) error {
+	// TODO troublor modify starts
+	if api.e.miner.Monitor != nil {
+		return fmt.Errorf("miner.start() is disabled when monitor is enabled. To disable monitor, use option --monitorport=-1")
+	}
+	// troublor modify ends
+
 	if threads == nil {
 		return api.e.StartMining(runtime.NumCPU())
 	}
@@ -153,6 +172,12 @@ func (api *PrivateMinerAPI) Start(threads *int) error {
 // the block creation level.
 func (api *PrivateMinerAPI) Stop() {
 	api.e.StopMining()
+
+	// TODO troublor modify starts: stop mining tasks
+	if api.e.miner.Monitor != nil {
+		api.e.miner.Monitor.StopMiningTask()
+	}
+	// troublor modify ends
 }
 
 // SetExtra sets the extra data string that is included when this miner mines a block.
