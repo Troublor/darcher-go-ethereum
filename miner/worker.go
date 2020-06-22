@@ -963,26 +963,6 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	//}
 	// troublor modify ends
 
-	// TODO troublor modify starts: return when mining task target achieved
-	if w.monitor != nil {
-		select {
-		case <-w.monitor.GetCurrentTask().TargetAchievedCh():
-			if w.monitor.GetCurrentTask() != ethMonitor.NilTask {
-				log.Info("Mining target achieved, stop mining", "task", w.monitor.GetCurrentTask().String())
-			}
-			w.monitor.StopMiningTask()
-			return
-		default:
-		}
-	}
-	// troublor modify ends
-
-	// TODO troublor modify starts: instrument OnNewMiningWork hook
-	if w.monitor != nil {
-		w.monitor.GetCurrentTask().OnNewMiningWork()
-	}
-	// troublor modify ends
-
 	num := parent.Number()
 	header := &types.Header{
 		ParentHash: parent.Hash(),
@@ -1104,6 +1084,13 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 		*receipts[i] = *l
 	}
 	s := w.current.state.Copy()
+
+	// TODO troublor modify starts: instrument OnNewMiningWork hook
+	if w.monitor != nil {
+		w.monitor.GetCurrentTask().OnNewMiningWork()
+	}
+	// troublor modify ends
+
 	// TODO troublor modify starts
 	if w.isRunning() {
 		if w.monitor != nil {
