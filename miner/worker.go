@@ -588,7 +588,7 @@ func (w *worker) taskLoop() {
 			// troublor modify ends
 			if sealHash == prev {
 				// TODO troublor modify starts
-				log.Info("reject duplicate sealing work", "sealHash", sealHash)
+				log.Debug("reject duplicate sealing work", "sealHash", sealHash)
 				prevRWMutex.RUnlock()
 				// troublor modify ends
 				continue
@@ -619,7 +619,7 @@ func (w *worker) taskLoop() {
 				log.Warn("Block sealing failed", "err", err)
 			} else /* TODO troublor modify start */
 			{
-				log.Info("Engine sealing", "sealHash", sealHash)
+				log.Debug("Engine sealing", "sealHash", sealHash)
 			}
 			// troublor modify ends
 		case <-w.exitCh:
