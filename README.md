@@ -14,6 +14,14 @@ https://camo.githubusercontent.com/915b7be44ada53c290eb157634330494ebe3e30a/6874
 Automated builds are available for stable releases and the unstable master branch. Binary
 archives are published at https://geth.ethereum.org/downloads/.
 
+## Additional Utility Functions in Geth Console
+
+- `miner.mineBlocks(numberOfBlocks)`: Mine a certain number of blocks
+- `miner.mineWhenTx()`: Watch for new submitted transactions, mine blocks when there are transactions in the txpool. Stop watching by `miner.stop()`
+- `miner.mineTx(txHash)`: Mine blocks to include the specific transaction, excluding all other transactions.
+- `miner.mineBlockInterval(milliseconds)`: Mine blocks periodically at some time interval. Stop mining by `miner.stop()`
+- `miner.stop()`: Immediately stop mining. 
+
 ## Building the source
 
 For prerequisites and detailed build instructions please read the [Installation Instructions](https://github.com/ethereum/go-ethereum/wiki/Building-Ethereum) on the wiki.
