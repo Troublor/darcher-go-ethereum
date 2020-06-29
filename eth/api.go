@@ -148,6 +148,24 @@ func (api *PrivateMinerAPI) MineTx(txHash common.Hash) (string, error) {
 	return fmt.Sprintf("mine transaction %s", txHash.Hex()), err
 }
 
+func (api *PrivateMinerAPI) MineBlocksWithoutTx(budget uint64) (string, error) {
+	if api.e.miner.Monitor == nil {
+		return "", fmt.Errorf("miner.mineBlocksWithoutTx() is disabled when monitor is disabled")
+	}
+	task := ethMonitor.NewBudgetWithoutTxTask(api.e, int64(budget))
+	err := api.e.miner.Monitor.AssignMiningTask(task)
+	return fmt.Sprintf("mine %d blocks without transactions", budget), err
+}
+
+func (api *PrivateMinerAPI) MineBlocksExceptTx(budget uint64, txHash string) (string, error) {
+	if api.e.miner.Monitor == nil {
+		return "", fmt.Errorf("miner.mineBlocksExceptTx() is disabled when monitor is disabled")
+	}
+	task := ethMonitor.NewBudgetExceptTxTask(api.e, int64(budget), txHash)
+	err := api.e.miner.Monitor.AssignMiningTask(task)
+	return fmt.Sprintf("mine %d blocks except transaction %s", budget, txHash), err
+}
+
 // troublor modify ends
 
 // Start starts the miner with the given number of threads. If threads is nil,
