@@ -1100,6 +1100,7 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 					log.Info("Mining target achieved, stop mining", "task", w.monitor.GetCurrentTask().String())
 				}
 				w.monitor.StopMiningTask()
+				return nil
 			default:
 			}
 		}
