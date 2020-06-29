@@ -286,7 +286,12 @@ type TxExecuteTask struct {
 func NewTxExecuteTask(eth Ethereum, targetTransaction *types.Transaction) *TxExecuteTask {
 	return &TxExecuteTask{
 		baseTask: newBaseTask(eth, func(block *types.Block) bool {
-			return eth.TxPool().Get(targetTransaction.Hash()) == nil
+			for _, tx := range block.Transactions() {
+				if tx.Hash() == targetTransaction.Hash() {
+					return true
+				}
+			}
+			return false
 		}),
 		eth:               eth,
 		targetTransaction: targetTransaction,
