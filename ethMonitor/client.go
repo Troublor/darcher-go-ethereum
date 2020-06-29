@@ -47,9 +47,20 @@ func (c *Client) NotifyNodeStart(node *node.Node, role Role, serverPort int) {
 }
 
 func (c *Client) NotifyNewTx(tx *types.Transaction, role Role) {
-	arg := &NewTxMsg{Role: role, Hash: tx.Hash().Hex()}
+	signer := types.NewEIP155Signer(c.monitor.eth.BlockChain().Config().ChainID)
+	sender, err := types.Sender(signer, tx)
+	if err != nil {
+		log.Error("Get tx sender failed", "tx", tx.Hash())
+		return
+	}
+	arg := &NewTxMsg{
+		Role:   role,
+		Hash:   tx.Hash().Hex(),
+		Sender: sender.Hex(),
+		Nonce:  tx.Nonce(),
+	}
 	reply := &Reply{}
-	err := c.netClient.Call("Server.OnNewTxRPC", arg, reply)
+	err = c.netClient.Call("Server.OnNewTxRPC", arg, reply)
 	if err != nil {
 		log.Error("RPC Call notifyNewTx error", "err", err.Error())
 	}

@@ -21,8 +21,10 @@ type NodeStartMsg struct {
 }
 
 type NewTxMsg struct {
-	Role Role
-	Hash string
+	Role   Role
+	Hash   string
+	Sender string
+	Nonce  uint64
 }
 
 type NewChainHeadMsg struct {
