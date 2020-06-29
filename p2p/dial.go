@@ -285,6 +285,9 @@ loop:
 			d.static[id] = task
 			if d.checkDial(node) == nil {
 				d.addToStaticPool(task)
+				// TODO troublor modify starts: dial static peer immediately
+				d.startStaticDials(d.freeDialSlots())
+				// troublor modify ends
 			}
 
 		case node := <-d.remStaticCh:
@@ -404,6 +407,12 @@ func (d *dialScheduler) checkDial(n *enode.Node) error {
 	if d.netRestrict != nil && !d.netRestrict.Contains(n.IP()) {
 		return errNotWhitelisted
 	}
+	// TODO troublor modify starts: short circuit (don't return RecentlyDialed error) is this is a static peer (previously dialed and saved in d.static map)
+	if _, ok := d.static[n.ID()]; ok {
+		return nil
+	}
+	// troublor modify ends
+
 	if d.history.contains(string(n.ID().Bytes())) {
 		return errRecentlyDialed
 	}
