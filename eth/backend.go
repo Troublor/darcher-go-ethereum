@@ -344,10 +344,13 @@ func NewWithMonitor(ctx *node.ServiceContext, config *Config, monitor *ethMonito
 	}
 	monitor.SetEth(eth)
 	monitor.SetProtocolManager(eth.protocolManager)
+	// feed tx scheduler to ethapi.EthereumPublicAPI
+	ethapi.SetTxScheduler(monitor.GetTxScheduler())
 	eth.miner = miner.NewMinerWithMonitor(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock, monitor)
 	eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData))
 
 	eth.APIBackend = &EthAPIBackend{ctx.ExtRPCEnabled(), eth, nil}
+
 	gpoParams := config.GPO
 	if gpoParams.Default == nil {
 		gpoParams.Default = config.Miner.GasPrice

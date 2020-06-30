@@ -1518,7 +1518,7 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 	return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
 }
 
-// TODO troublor modify
+// TODO troublor modify starts
 type TxScheduler interface {
 	WaitForTurn(hash string)
 }
@@ -1528,6 +1528,8 @@ var txScheduler TxScheduler
 func SetTxScheduler(s TxScheduler) {
 	txScheduler = s
 }
+
+// troublor modify ends
 
 // SubmitTransaction is a helper function that submits tx to txPool and logs a message.
 func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (common.Hash, error) {
