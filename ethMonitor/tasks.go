@@ -15,7 +15,7 @@ type baseTask struct {
 	targetAchievedCh chan interface{}
 }
 
-func newBaseTask(eth Ethereum, targetAchieved func(block *types.Block) bool) baseTask {
+func newBaseTask(eth Ethereum, targetAchieved func(block *types.Block) (achieved bool)) baseTask {
 	task := baseTask{targetAchievedCh: make(chan interface{})}
 	go func() {
 		ch := make(chan core.ChainHeadEvent, 10)
@@ -73,6 +73,10 @@ func (t *BudgetTask) IsTxAllowed(txHash common.Hash) bool {
 	return true
 }
 
+func (t *BudgetTask) OnTxError(txErrors map[common.Hash]error) {
+	return
+}
+
 // BudgetTask is used to control miner to mine according to a budget
 // do not allow any txs
 type BudgetWithoutTxTask struct {
@@ -102,6 +106,10 @@ func (t *BudgetWithoutTxTask) String() string {
 
 func (t *BudgetWithoutTxTask) IsTxAllowed(txHash common.Hash) bool {
 	return false
+}
+
+func (t *BudgetWithoutTxTask) OnTxError(txErrors map[common.Hash]error) {
+	return
 }
 
 // BudgetTask is used to control miner to mine according to a budget
@@ -135,6 +143,10 @@ func (t *BudgetExceptTxTask) String() string {
 
 func (t *BudgetExceptTxTask) IsTxAllowed(txHash common.Hash) bool {
 	return t.txHash != txHash.String()
+}
+
+func (t *BudgetExceptTxTask) OnTxError(txErrors map[common.Hash]error) {
+	return
 }
 
 // IntervalTask is used to repeatedly mine blocks with time interval
@@ -193,6 +205,10 @@ func (t *IntervalTask) IsTxAllowed(txHash common.Hash) bool {
 	return true
 }
 
+func (t *IntervalTask) OnTxError(txErrors map[common.Hash]error) {
+	return
+}
+
 func (t *IntervalTask) String() string {
 	return fmt.Sprintf("IntervalTask(%d)", t.interval)
 }
@@ -236,7 +252,7 @@ func (t *TxMonitorTask) OnNewMiningWork() {
 		txs, err := t.txPool.Pending()
 		if err != nil {
 			t.Stop()
-			log.Error("retrieving tx from txPool error, stopping task", "err", err)
+			log.Error("retrieving tx from txPool error, stopping TxMonitor task", "err", err)
 			return
 		} else {
 			if len(txs) > 0 {
@@ -253,7 +269,7 @@ func (t *TxMonitorTask) OnNewMiningWork() {
 			} else {
 				select {
 				case <-t.txCh:
-					time.Sleep(500 * time.Millisecond)
+					time.Sleep(200 * time.Millisecond)
 					return
 				case <-t.stopCh:
 					return
@@ -272,6 +288,15 @@ func (t *TxMonitorTask) IsTxAllowed(txHash common.Hash) bool {
 	return true
 }
 
+func (t *TxMonitorTask) OnTxError(txErrors map[common.Hash]error) {
+	for txHash, err := range txErrors {
+		log.Error("Tx execution error", "tx", txHash, "err", err)
+	}
+	log.Error("Stopping TxMonitor task")
+	t.Stop()
+	return
+}
+
 func (t *TxMonitorTask) String() string {
 	return fmt.Sprintf("TxMonitorTask()")
 }
@@ -281,21 +306,27 @@ type TxExecuteTask struct {
 	baseTask
 	eth               Ethereum
 	targetTransaction *types.Transaction
+	err               error
 }
 
 func NewTxExecuteTask(eth Ethereum, targetTransaction *types.Transaction) *TxExecuteTask {
-	return &TxExecuteTask{
-		baseTask: newBaseTask(eth, func(block *types.Block) bool {
-			for _, tx := range block.Transactions() {
-				if tx.Hash() == targetTransaction.Hash() {
-					return true
-				}
-			}
-			return false
-		}),
+	task := &TxExecuteTask{
 		eth:               eth,
 		targetTransaction: targetTransaction,
+		err:               nil,
 	}
+	task.baseTask = newBaseTask(eth, func(block *types.Block) bool {
+		if task.err != nil {
+			return true
+		}
+		for _, tx := range block.Transactions() {
+			if tx.Hash() == targetTransaction.Hash() {
+				return true
+			}
+		}
+		return false
+	})
+	return task
 }
 
 func (t *TxExecuteTask) OnNewMiningWork() {
@@ -304,6 +335,13 @@ func (t *TxExecuteTask) OnNewMiningWork() {
 
 func (t *TxExecuteTask) IsTxAllowed(txHash common.Hash) bool {
 	return t.targetTransaction.Hash() == txHash
+}
+
+func (t *TxExecuteTask) OnTxError(txErrors map[common.Hash]error) {
+	if err, ok := txErrors[t.targetTransaction.Hash()]; ok {
+		log.Error("Tx execution error, stopping TxExecute task", "tx", t.targetTransaction.Hash(), "err", err)
+		t.err = err
+	}
 }
 
 func (t *TxExecuteTask) String() string {
@@ -336,6 +374,10 @@ func (t *TdTask) IsTxAllowed(txHash common.Hash) bool {
 	return false
 }
 
+func (t *TdTask) OnTxError(txErrors map[common.Hash]error) {
+	return
+}
+
 func (t *TdTask) String() string {
 	return fmt.Sprintf("TdTask(%d)", t.targetTd.Int64())
 }
@@ -364,4 +406,8 @@ func (t *nilTask) String() string {
 
 func (t *nilTask) IsTxAllowed(txHash common.Hash) bool {
 	return false
+}
+
+func (t *nilTask) OnTxError(txErrors map[common.Hash]error) {
+	return
 }

@@ -811,6 +811,7 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 	// TODO troublor modify starts
 	committedTxCount := 0
 	skipptedTxCount := 0
+	errorTxs := make(map[*types.Transaction]error)
 	// troublor modify ends
 
 	// Short circuit if current is nil
@@ -881,6 +882,11 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 		w.current.state.Prepare(tx.Hash(), common.Hash{}, w.current.tcount)
 
 		logs, err := w.commitTransaction(tx, coinbase)
+		// TODO troublor modify starts: record failed txs
+		if err != nil {
+			errorTxs[tx] = err
+		}
+		// troublor modify ends
 		switch err {
 		case core.ErrGasLimitReached:
 			// Pop the current out-of-gas transaction without shifting in the next from the account
@@ -937,7 +943,7 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 	}
 
 	// TODO troublor modify starts
-	log.Info("commit transactions", "count", committedTxCount, "skipped", skipptedTxCount)
+	log.Info("commit transactions", "count", committedTxCount, "skipped", skipptedTxCount, "errored", len(errorTxs))
 	// troublor modify ends
 
 	return false

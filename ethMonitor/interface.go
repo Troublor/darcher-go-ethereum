@@ -25,6 +25,7 @@ type Stoppable interface {
 }
 
 type Task interface {
+	OnTxError(txErrors map[common.Hash]error)
 	// returns a channel which is used to signal whether the task target has been achieved or not
 	TargetAchievedCh() chan interface{}
 	// a hook function, called before whenever a new mining task is committed
