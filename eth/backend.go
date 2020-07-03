@@ -20,7 +20,7 @@ package eth
 import (
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/ethMonitor"
+	ethmonitor "github.com/ethereum/go-ethereum/ethmonitor/worker"
 	"math/big"
 	"runtime"
 	"sync"
@@ -238,7 +238,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 // TODO troublor modify starts
 // New creates a new Ethereum object (including the
 // initialisation of the common Ethereum object)
-func NewWithMonitor(ctx *node.ServiceContext, config *Config, monitor *ethMonitor.Monitor) (*Ethereum, error) {
+func NewWithMonitor(ctx *node.ServiceContext, config *Config, monitor *ethmonitor.Monitor) (*Ethereum, error) {
 	// Ensure configuration values are compatible and sane
 	if config.SyncMode == downloader.LightSync {
 		return nil, errors.New("can't run eth.Ethereum in light sync mode, use les.LightEthereum")

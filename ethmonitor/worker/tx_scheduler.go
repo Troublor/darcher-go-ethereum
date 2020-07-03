@@ -1,4 +1,4 @@
-package ethMonitor
+package worker
 
 import (
 	"sync"

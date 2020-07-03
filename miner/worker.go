@@ -19,7 +19,7 @@ package miner
 import (
 	"bytes"
 	"errors"
-	"github.com/ethereum/go-ethereum/ethMonitor"
+	ethmonitor "github.com/ethereum/go-ethereum/ethmonitor/worker"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -187,7 +187,7 @@ type worker struct {
 	resubmitHook func(time.Duration, time.Duration) // Method to call upon updating resubmitting interval.
 
 	// TODO troublor modify starts
-	monitor *ethMonitor.Monitor
+	monitor *ethmonitor.Monitor
 	// troublor modify ends
 }
 
@@ -241,7 +241,7 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 }
 
 // TODO troublor modify starts
-func NewWorkerWithMonitor(config *Config, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, isLocalBlock func(*types.Block) bool, init bool, monitor *ethMonitor.Monitor) *worker {
+func NewWorkerWithMonitor(config *Config, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, isLocalBlock func(*types.Block) bool, init bool, monitor *ethmonitor.Monitor) *worker {
 	w := newWorker(config, chainConfig, engine, eth, mux, isLocalBlock, init)
 	w.monitor = monitor
 	return w
@@ -544,7 +544,7 @@ func (w *worker) taskLoop() {
 	// TODO troublor modify starts: start a goroutine to reset prev when mining task target is achieved
 	var prevRWMutex sync.RWMutex
 	if w.monitor != nil {
-		ch := make(chan ethMonitor.Task, 1)
+		ch := make(chan ethmonitor.Task, 1)
 		sub := w.monitor.SubscribeNewTask(ch)
 		defer sub.Unsubscribe()
 		// listen for new mining task,
@@ -641,7 +641,7 @@ func (w *worker) resultLoop() {
 			if w.monitor != nil {
 				select {
 				case <-w.monitor.GetCurrentTask().TargetAchievedCh():
-					if w.monitor.GetCurrentTask() != ethMonitor.NilTask {
+					if w.monitor.GetCurrentTask() != ethmonitor.NilTask {
 						log.Info("Mining target achieved, stop mining", "task", w.monitor.GetCurrentTask().String())
 					}
 					w.monitor.StopMiningTask()
@@ -1102,7 +1102,7 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 		if w.monitor != nil {
 			select {
 			case <-w.monitor.GetCurrentTask().TargetAchievedCh():
-				if w.monitor.GetCurrentTask() != ethMonitor.NilTask {
+				if w.monitor.GetCurrentTask() != ethmonitor.NilTask {
 					log.Info("Mining target achieved, stop mining", "task", w.monitor.GetCurrentTask().String())
 				}
 				w.monitor.StopMiningTask()

@@ -20,7 +20,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/ethMonitor"
+	ethmonitor "github.com/ethereum/go-ethereum/ethmonitor/worker"
 	"os"
 	"reflect"
 	"unicode"
@@ -146,7 +146,7 @@ func enableWhisper(ctx *cli.Context) bool {
 }
 
 // TODO troublor modify starts
-func makeFullNodeWithMonitor(ctx *cli.Context, monitor *ethMonitor.Monitor) *node.Node {
+func makeFullNodeWithMonitor(ctx *cli.Context, monitor *ethmonitor.Monitor) *node.Node {
 	stack, cfg := makeConfigNode(ctx)
 	// TODO troublor modify
 	monitor.SetNode(stack)

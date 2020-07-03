@@ -21,7 +21,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/ethMonitor"
+	ethmonitor "github.com/ethereum/go-ethereum/ethmonitor/worker"
 	"io"
 	"io/ioutil"
 	"math/big"
@@ -1684,7 +1684,7 @@ func RegisterEthService(stack *node.Node, cfg *eth.Config) {
 
 // TODO troublor modify
 // RegisterEthService adds an Ethereum client to the stack.
-func RegisterEthServiceWithMonitor(stack *node.Node, cfg *eth.Config, monitor *ethMonitor.Monitor) {
+func RegisterEthServiceWithMonitor(stack *node.Node, cfg *eth.Config, monitor *ethmonitor.Monitor) {
 	var err error
 	if cfg.SyncMode == downloader.LightSync {
 		err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {

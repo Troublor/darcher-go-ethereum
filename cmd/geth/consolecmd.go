@@ -18,7 +18,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/ethMonitor"
+	ethmonitor "github.com/ethereum/go-ethereum/ethmonitor/worker"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -80,11 +80,11 @@ func localConsole(ctx *cli.Context) error {
 	// Create and start the node based on the CLI flags
 	prepare(ctx)
 	// TODO troublor modify starts
-	var role ethMonitor.Role
+	var role ethmonitor.Role
 	if ctx.GlobalBool(utils.TalkerFlag.Name) {
-		role = ethMonitor.TALKER
+		role = ethmonitor.TALKER
 	} else {
-		role = ethMonitor.DOER
+		role = ethmonitor.DOER
 	}
 	monitorPort := ctx.GlobalInt(utils.MonitorPort.Name)
 	var node *node.Node
@@ -94,7 +94,7 @@ func localConsole(ctx *cli.Context) error {
 		startNode(ctx, node)
 		// TODO troublor modify starts
 	} else {
-		monitor := ethMonitor.NewMonitor(role, monitorPort)
+		monitor := ethmonitor.NewMonitor(role, monitorPort)
 		node = makeFullNodeWithMonitor(ctx, monitor)
 		startNode(ctx, node)
 		monitor.NotifyNodeStart(node)
