@@ -598,6 +598,18 @@ web3._extend({
 			inputFormatter: [null]
 		}),
 		new web3._extend.Method({
+			name: 'mineBlocksWithoutTx',
+			call: 'miner_mineBlocksWithoutTx',
+			params: 1,
+			inputFormatter: [null]
+		}),
+		new web3._extend.Method({
+			name: 'mineBlocksExceptTx',
+			call: 'miner_mineBlocksExceptTx',
+			params: 1,
+			inputFormatter: [null]
+		}),
+		new web3._extend.Method({
 			name: 'start',
 			call: 'miner_start',
 			params: 1,
