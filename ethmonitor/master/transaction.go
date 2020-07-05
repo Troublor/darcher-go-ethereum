@@ -2,6 +2,7 @@ package master
 
 import (
 	"github.com/ethereum/go-ethereum/ethmonitor/master/common"
+	"github.com/ethereum/go-ethereum/ethmonitor/rpc"
 	"github.com/ethereum/go-ethereum/event"
 	"sync"
 )
@@ -15,11 +16,11 @@ type Transaction struct {
 	sender string
 	nonce  uint64
 
-	newHeadCh chan common.NewChainHeadEvent
-	newSideCh chan common.NewChainSideEvent
-	newTxCh   chan common.NewTxEvent
+	newHeadCh chan *rpc.ChainHead
+	newSideCh chan *rpc.ChainSide
+	newTxCh   chan *rpc.Tx
 
-	executedBlock common.Block
+	executedBlock *rpc.ChainHead
 	stateRWLock   sync.RWMutex
 	state         common.LifecycleState
 
@@ -30,9 +31,9 @@ func NewTransaction(
 	hash string,
 	sender string,
 	nonce uint64,
-	newHeadCh chan common.NewChainHeadEvent,
-	newSideCh chan common.NewChainSideEvent,
-	newTxCh chan common.NewTxEvent,
+	newHeadCh chan *rpc.ChainHead,
+	newSideCh chan *rpc.ChainSide,
+	newTxCh chan *rpc.Tx,
 ) *Transaction {
 	t := &Transaction{
 		hash:      hash,
@@ -72,7 +73,7 @@ func (t *Transaction) stateLoop() {
 	for {
 		select {
 		case ev := <-t.newHeadCh:
-			if ev.Role != common.DOER {
+			if ev.GetRole() != rpc.Role_DOER {
 				continue
 			}
 			switch t.State() {
@@ -81,11 +82,7 @@ func (t *Transaction) stateLoop() {
 			case common.PENDING:
 				for _, tx := range ev.Txs {
 					if tx == t.hash {
-						t.executedBlock = common.Block{
-							Number: ev.Number,
-							Hash:   ev.Hash,
-							Td:     ev.Td,
-						}
+						t.executedBlock = ev
 						t.setState(common.EXECUTED)
 						break
 					}
@@ -103,7 +100,7 @@ func (t *Transaction) stateLoop() {
 				return
 			}
 		case ev := <-t.newSideCh:
-			if ev.Role != common.DOER {
+			if ev.GetRole() != rpc.Role_DOER {
 				continue
 			}
 			switch t.State() {
@@ -122,7 +119,7 @@ func (t *Transaction) stateLoop() {
 				return
 			}
 		case ev := <-t.newTxCh:
-			if ev.Role != common.DOER {
+			if ev.GetRole() != rpc.Role_DOER {
 				continue
 			}
 			if t.state == common.PENDING || t.state == common.CREATED {

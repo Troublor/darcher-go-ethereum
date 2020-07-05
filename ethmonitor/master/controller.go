@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/ethereum/go-ethereum/ethmonitor/master/common"
-	"github.com/ethereum/go-ethereum/ethmonitor/master/rpc"
+	"github.com/ethereum/go-ethereum/ethmonitor/master/service"
 	"github.com/ethereum/go-ethereum/log"
 	"os"
 	"strconv"
@@ -149,13 +149,13 @@ func (c *ConsoleController) OnStateChange(txHash string, currentState common.Lif
 }
 
 type DArcherController struct {
-	dArcher  *rpc.DArcher
+	dArcher  *service.DArcher
 	txStates map[string]common.LifecycleState
 }
 
 func NewDArcherController() *DArcherController {
 	return &DArcherController{
-		dArcher:  rpc.NewDArcher(common.DArcherIP, common.DArcherPort),
+		dArcher:  service.NewDArcher(common.DArcherIP, common.DArcherPort),
 		txStates: make(map[string]common.LifecycleState),
 	}
 }

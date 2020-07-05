@@ -2,14 +2,8 @@ package worker
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
 	"strings"
 )
-
-func inTxPool(txHash common.Hash, txPool *core.TxPool) bool {
-	return txPool.Get(txHash) != nil
-}
 
 func PrettifyHash(hash string) string {
 	offset := 0

@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	ethmonitor "github.com/ethereum/go-ethereum/ethmonitor/master"
-	"github.com/ethereum/go-ethereum/ethmonitor/master/eth"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/mattn/go-colorable"
 	"github.com/mattn/go-isatty"
@@ -77,7 +76,7 @@ func action(ctx *cli.Context) error {
 	case "robustnessTest":
 		controller = ethmonitor.NewRobustnessTestController()
 	}
-	cluster := ethmonitor.NewMonitor(controller, eth.ClusterConfig{ConfirmationNumber: 1, ServerPort: 8989})
+	cluster := ethmonitor.NewMonitor(controller, ethmonitor.ClusterConfig{ConfirmationNumber: 1, ServerPort: 8989})
 	var err error
 	if port == 0 {
 		port, err = freeport.GetFreePort()

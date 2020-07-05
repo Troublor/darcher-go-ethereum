@@ -2,21 +2,21 @@ package master
 
 import (
 	"github.com/ethereum/go-ethereum/ethmonitor/master/common"
-	"github.com/ethereum/go-ethereum/ethmonitor/master/eth"
+	"github.com/ethereum/go-ethereum/ethmonitor/rpc"
 	log "github.com/inconshreveable/log15"
 )
 
 // Traverser is used to traverse the lifecycle of a Transaction
 // Traverser is for a single tx, and should be initialized when tx is on PENDING state
 type Traverser struct {
-	cluster    *eth.Cluster
+	cluster    *Cluster
 	controller TxController
 
 	// tx information
 	tx *Transaction
 }
 
-func NewTraverser(cluster *eth.Cluster, tx *Transaction, controller TxController) *Traverser {
+func NewTraverser(cluster *Cluster, tx *Transaction, controller TxController) *Traverser {
 	traverser := &Traverser{
 		controller: controller,
 		cluster:    cluster,
@@ -175,7 +175,7 @@ func (t *Traverser) transitFromExecutedTo(state common.LifecycleState) error {
 
 // schedule the tx, tell geth to return tx to dApp
 func (t *Traverser) Schedule() error {
-	doneCh, errCh := t.cluster.ScheduleTxAsyncQueued(t.tx.Hash())
+	doneCh, errCh := t.cluster.ScheduleTxAsyncQueued(rpc.Role_DOER, t.tx.Hash())
 	select {
 	case <-doneCh:
 	case err := <-errCh:
@@ -188,7 +188,7 @@ func (t *Traverser) Schedule() error {
 
 // execute the Transaction
 func (t *Traverser) Execute() error {
-	doneCh, errCh := t.cluster.MineTxAsyncQueued(t.tx.Hash())
+	doneCh, errCh := t.cluster.MineTxAsyncQueued(rpc.Role_DOER, t.tx.Hash())
 	select {
 	case block := <-doneCh:
 		log.Info("Transaction has been executed on Doer", "tx", t.tx.PrettyHash(), "number", block.Number)
@@ -215,8 +215,8 @@ func (t *Traverser) Revert() error {
 }
 
 func (t *Traverser) Confirm() error {
-	count := (t.tx.executedBlock.Number + common.ConfirmationsCount) - t.cluster.CurrentBlock().Number
-	doneCh, errCh := t.cluster.MineBlocksWithoutTxAsyncQueued(count)
+	count := (t.tx.executedBlock.Number + common.ConfirmationsCount) - t.cluster.GetDoerCurrentHead().GetNumber()
+	doneCh, errCh := t.cluster.MineBlocksWithoutTxAsyncQueued(rpc.Role_DOER, count)
 	select {
 	case <-doneCh:
 		t.tx.WaitForState(common.CONFIRMED)

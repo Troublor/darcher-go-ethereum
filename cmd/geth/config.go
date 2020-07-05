@@ -146,7 +146,7 @@ func enableWhisper(ctx *cli.Context) bool {
 }
 
 // TODO troublor modify starts
-func makeFullNodeWithMonitor(ctx *cli.Context, monitor *ethmonitor.Monitor) *node.Node {
+func makeFullNodeWithMonitor(ctx *cli.Context, monitor *ethmonitor.MiningMonitor) *node.Node {
 	stack, cfg := makeConfigNode(ctx)
 	// TODO troublor modify
 	monitor.SetNode(stack)

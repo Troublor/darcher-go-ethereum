@@ -1684,7 +1684,7 @@ func RegisterEthService(stack *node.Node, cfg *eth.Config) {
 
 // TODO troublor modify
 // RegisterEthService adds an Ethereum client to the stack.
-func RegisterEthServiceWithMonitor(stack *node.Node, cfg *eth.Config, monitor *ethmonitor.Monitor) {
+func RegisterEthServiceWithMonitor(stack *node.Node, cfg *eth.Config, monitor *ethmonitor.MiningMonitor) {
 	var err error
 	if cfg.SyncMode == downloader.LightSync {
 		err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {

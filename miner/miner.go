@@ -67,7 +67,7 @@ type Miner struct {
 	shouldStart int32 // should start indicates whether we should start after sync
 
 	// TODO troublor modify
-	Monitor *ethmonitor.Monitor
+	Monitor *ethmonitor.MiningMonitor
 }
 
 func New(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine, isLocalBlock func(block *types.Block) bool) *Miner {
@@ -85,7 +85,7 @@ func New(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *even
 }
 
 // TODO troublor modify starts
-func NewMinerWithMonitor(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine, isLocalBlock func(block *types.Block) bool, monitor *ethmonitor.Monitor) *Miner {
+func NewMinerWithMonitor(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine, isLocalBlock func(block *types.Block) bool, monitor *ethmonitor.MiningMonitor) *Miner {
 	miner := &Miner{
 		eth:      eth,
 		mux:      mux,

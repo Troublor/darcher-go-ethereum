@@ -18,6 +18,7 @@ package main
 
 import (
 	"fmt"
+	ethmonitor_rpc "github.com/ethereum/go-ethereum/ethmonitor/rpc"
 	ethmonitor "github.com/ethereum/go-ethereum/ethmonitor/worker"
 	"os"
 	"os/signal"
@@ -80,11 +81,11 @@ func localConsole(ctx *cli.Context) error {
 	// Create and start the node based on the CLI flags
 	prepare(ctx)
 	// TODO troublor modify starts
-	var role ethmonitor.Role
+	var role ethmonitor_rpc.Role
 	if ctx.GlobalBool(utils.TalkerFlag.Name) {
-		role = ethmonitor.TALKER
+		role = ethmonitor_rpc.Role_TALKER
 	} else {
-		role = ethmonitor.DOER
+		role = ethmonitor_rpc.Role_DOER
 	}
 	monitorPort := ctx.GlobalInt(utils.MonitorPort.Name)
 	var node *node.Node

@@ -2,26 +2,26 @@ package master
 
 import (
 	"github.com/ethereum/go-ethereum/ethmonitor/master/common"
-	"github.com/ethereum/go-ethereum/ethmonitor/master/eth"
+	"github.com/ethereum/go-ethereum/ethmonitor/rpc"
 	"github.com/ethereum/go-ethereum/event"
 	log "github.com/inconshreveable/log15"
 )
 
-type Monitor struct {
-	cluster *eth.Cluster
+type EthMonitor struct {
+	cluster *Cluster
 	// the Transaction being traversed lifecycle, represented as a traverser
 	traverserMap map[string]*Traverser
-
+	// all non-complete traverser are put in the queue and polled based on the dynamic function
 	traverserQueue *common.DynamicPriorityQueue
 
 	txController TxController
 }
 
-func NewMonitor(txController TxController, config eth.ClusterConfig) *Monitor {
-	return &Monitor{
+func NewMonitor(txController TxController, config ClusterConfig) *EthMonitor {
+	return &EthMonitor{
 		txController: txController,
 
-		cluster: eth.NewCluster(config),
+		cluster: NewCluster(config),
 
 		traverserMap: make(map[string]*Traverser),
 		traverserQueue: common.NewDynamicPriorityQueue(func(candidates []interface{}) (selected interface{}) {
@@ -37,17 +37,17 @@ func NewMonitor(txController TxController, config eth.ClusterConfig) *Monitor {
 	}
 }
 
-func (m *Monitor) Start() {
+func (m *EthMonitor) Start() {
 	m.cluster.Start(false)
 	go m.newTxLoop()
 	go m.traverseLoop()
 	select {}
 }
 
-func (m *Monitor) newTxLoop() {
+func (m *EthMonitor) newTxLoop() {
 	// listen to new transactions
-	txCh := make(chan common.NewTxEvent, common.EventCacheSize)
-	txSub := m.cluster.SubscribeNewTxEvent(txCh)
+	txCh := make(chan *rpc.Tx, common.EventCacheSize)
+	txSub := m.cluster.SubscribeNewTx(txCh)
 
 	subscriptions := make([]event.Subscription, 1)
 	subscriptions[0] = txSub
@@ -65,17 +65,17 @@ func (m *Monitor) newTxLoop() {
 			continue
 		}
 
-		if ev.Role == common.TALKER {
+		if ev.GetRole() == rpc.Role_TALKER {
 			log.Warn("Receive tx from talker, ignored", "tx", ev.Hash[:8])
 			continue
 		}
 
-		newHeadCh := make(chan common.NewChainHeadEvent, 10)
-		newSideCh := make(chan common.NewChainSideEvent, 10)
-		newTxCh := make(chan common.NewTxEvent, 10)
-		subscriptions = append(subscriptions, m.cluster.SubscribeNewChainHeadEvent(newHeadCh))
-		subscriptions = append(subscriptions, m.cluster.SubscribeNewChainSideEvent(newSideCh))
-		subscriptions = append(subscriptions, m.cluster.SubscribeNewTxEvent(newTxCh))
+		newHeadCh := make(chan *rpc.ChainHead, 10)
+		newSideCh := make(chan *rpc.ChainSide, 10)
+		newTxCh := make(chan *rpc.Tx, 10)
+		subscriptions = append(subscriptions, m.cluster.SubscribeNewChainHead(newHeadCh))
+		subscriptions = append(subscriptions, m.cluster.SubscribeNewChainSide(newSideCh))
+		subscriptions = append(subscriptions, m.cluster.SubscribeNewTx(newTxCh))
 
 		tx := NewTransaction(ev.Hash, ev.Sender, ev.Nonce, newHeadCh, newSideCh, newTxCh)
 		traverser := NewTraverser(m.cluster, tx, m.txController)
@@ -84,7 +84,7 @@ func (m *Monitor) newTxLoop() {
 	}
 }
 
-func (m *Monitor) traverseLoop() {
+func (m *EthMonitor) traverseLoop() {
 	for {
 		selected := m.traverserQueue.Pull().(*Traverser)
 		selected.ResumeTraverse()

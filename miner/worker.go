@@ -187,7 +187,7 @@ type worker struct {
 	resubmitHook func(time.Duration, time.Duration) // Method to call upon updating resubmitting interval.
 
 	// TODO troublor modify starts
-	monitor *ethmonitor.Monitor
+	monitor *ethmonitor.MiningMonitor
 	// troublor modify ends
 }
 
@@ -241,7 +241,7 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 }
 
 // TODO troublor modify starts
-func NewWorkerWithMonitor(config *Config, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, isLocalBlock func(*types.Block) bool, init bool, monitor *ethmonitor.Monitor) *worker {
+func NewWorkerWithMonitor(config *Config, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, isLocalBlock func(*types.Block) bool, init bool, monitor *ethmonitor.MiningMonitor) *worker {
 	w := newWorker(config, chainConfig, engine, eth, mux, isLocalBlock, init)
 	w.monitor = monitor
 	return w
@@ -810,7 +810,7 @@ func (w *worker) commitTransaction(tx *types.Transaction, coinbase common.Addres
 func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coinbase common.Address, interrupt *int32) bool {
 	// TODO troublor modify starts
 	committedTxCount := 0
-	skipptedTxCount := 0
+	skippedTxCount := 0
 	errorTxs := make(map[*types.Transaction]error)
 	// troublor modify ends
 
@@ -860,7 +860,7 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 		// TODO troublor modify starts: only execute allowed tx
 		if w.monitor != nil && !w.monitor.IsTxAllowed(tx.Hash()) {
 			txs.Pop()
-			skipptedTxCount++
+			skippedTxCount++
 			continue
 		}
 		// troublor modify ends
@@ -943,7 +943,7 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 	}
 
 	// TODO troublor modify starts
-	log.Info("commit transactions", "count", committedTxCount, "skipped", skipptedTxCount, "errored", len(errorTxs))
+	log.Info("commit transactions", "count", committedTxCount, "skipped", skippedTxCount, "errored", len(errorTxs))
 	// troublor modify ends
 
 	return false

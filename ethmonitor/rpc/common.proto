@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package ethmonitor;
+
+option go_package = "github.com/Troublor/go-ethereum-castle/ethmonitor/rpc";
+
+enum Role {
+  DOER = 0;
+  TALKER = 1;
+}
+
+enum Error {
+  NilErr = 0;
+  InternalErr = 1;
+  TimeoutErr = 2;
+}

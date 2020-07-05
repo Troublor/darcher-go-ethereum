@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"math/big"
 	"strings"
 	"sync"
 )
@@ -84,4 +85,15 @@ func ExecuteSerially(fns []func() error) error {
 		}
 	}
 	return nil
+}
+
+var uuidMutex sync.Mutex
+var uuid = big.NewInt(0)
+
+func GetUUID() string {
+	uuidMutex.Lock()
+	defer uuidMutex.Unlock()
+	id := uuid.String()
+	uuid = uuid.Add(uuid, big.NewInt(1))
+	return id
 }
