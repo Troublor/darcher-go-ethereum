@@ -33,7 +33,7 @@ func NewBlockchainStatusServiceClient(cc grpc.ClientConnInterface) BlockchainSta
 }
 
 func (c *blockchainStatusServiceClient) NotifyNewChainHead(ctx context.Context, opts ...grpc.CallOption) (BlockchainStatusService_NotifyNewChainHeadClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_BlockchainStatusService_serviceDesc.Streams[0], "/ethmonitor.BlockchainStatusService/notifyNewChainHead", opts...)
+	stream, err := c.cc.NewStream(ctx, &_BlockchainStatusService_serviceDesc.Streams[0], "/darcher.BlockchainStatusService/notifyNewChainHead", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +67,7 @@ func (x *blockchainStatusServiceNotifyNewChainHeadClient) CloseAndRecv() (*empty
 }
 
 func (c *blockchainStatusServiceClient) NotifyNewChainSide(ctx context.Context, opts ...grpc.CallOption) (BlockchainStatusService_NotifyNewChainSideClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_BlockchainStatusService_serviceDesc.Streams[1], "/ethmonitor.BlockchainStatusService/notifyNewChainSide", opts...)
+	stream, err := c.cc.NewStream(ctx, &_BlockchainStatusService_serviceDesc.Streams[1], "/darcher.BlockchainStatusService/notifyNewChainSide", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func (x *blockchainStatusServiceNotifyNewChainSideClient) CloseAndRecv() (*empty
 }
 
 func (c *blockchainStatusServiceClient) NotifyNewTx(ctx context.Context, opts ...grpc.CallOption) (BlockchainStatusService_NotifyNewTxClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_BlockchainStatusService_serviceDesc.Streams[2], "/ethmonitor.BlockchainStatusService/notifyNewTx", opts...)
+	stream, err := c.cc.NewStream(ctx, &_BlockchainStatusService_serviceDesc.Streams[2], "/darcher.BlockchainStatusService/notifyNewTx", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +135,7 @@ func (x *blockchainStatusServiceNotifyNewTxClient) CloseAndRecv() (*empty.Empty,
 }
 
 func (c *blockchainStatusServiceClient) GetHeadControl(ctx context.Context, opts ...grpc.CallOption) (BlockchainStatusService_GetHeadControlClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_BlockchainStatusService_serviceDesc.Streams[3], "/ethmonitor.BlockchainStatusService/getHeadControl", opts...)
+	stream, err := c.cc.NewStream(ctx, &_BlockchainStatusService_serviceDesc.Streams[3], "/darcher.BlockchainStatusService/getHeadControl", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -304,7 +304,7 @@ func (x *blockchainStatusServiceGetHeadControlServer) Recv() (*GetChainHeadContr
 }
 
 var _BlockchainStatusService_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "ethmonitor.BlockchainStatusService",
+	ServiceName: "darcher.BlockchainStatusService",
 	HandlerType: (*BlockchainStatusServiceServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{

@@ -5,6 +5,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethmonitor/rpc"
 	"github.com/ethereum/go-ethereum/event"
 	log "github.com/inconshreveable/log15"
+	"sync"
 )
 
 type EthMonitor struct {
@@ -12,7 +13,8 @@ type EthMonitor struct {
 	// the Transaction being traversed lifecycle, represented as a traverser
 	traverserMap map[string]*Traverser
 	// all non-complete traverser are put in the queue and polled based on the dynamic function
-	traverserQueue *common.DynamicPriorityQueue
+	traverserQueue         *common.DynamicPriorityQueue
+	traverserSubscriptions sync.Map //map[string]*event.SubscriptionScope
 
 	txController TxController
 }
@@ -48,13 +50,13 @@ func (m *EthMonitor) newTxLoop() {
 	// listen to new transactions
 	txCh := make(chan *rpc.Tx, common.EventCacheSize)
 	txSub := m.cluster.SubscribeNewTx(txCh)
+	defer txSub.Unsubscribe()
 
-	subscriptions := make([]event.Subscription, 1)
-	subscriptions[0] = txSub
 	defer func() {
-		for _, sub := range subscriptions {
-			sub.Unsubscribe()
-		}
+		m.traverserSubscriptions.Range(func(key, value interface{}) bool {
+			value.(*event.SubscriptionScope).Close()
+			return true
+		})
 	}()
 
 	// listen for transactions
@@ -66,16 +68,18 @@ func (m *EthMonitor) newTxLoop() {
 		}
 
 		if ev.GetRole() == rpc.Role_TALKER {
-			log.Warn("Receive tx from talker, ignored", "tx", ev.Hash[:8])
+			log.Warn("Receive tx from talker, ignored", "tx", common.PrettifyHash(ev.GetHash()))
 			continue
 		}
 
 		newHeadCh := make(chan *rpc.ChainHead, 10)
 		newSideCh := make(chan *rpc.ChainSide, 10)
 		newTxCh := make(chan *rpc.Tx, 10)
-		subscriptions = append(subscriptions, m.cluster.SubscribeNewChainHead(newHeadCh))
-		subscriptions = append(subscriptions, m.cluster.SubscribeNewChainSide(newSideCh))
-		subscriptions = append(subscriptions, m.cluster.SubscribeNewTx(newTxCh))
+		scope := &event.SubscriptionScope{}
+		scope.Track(m.cluster.SubscribeNewChainHead(newHeadCh))
+		scope.Track(m.cluster.SubscribeNewChainSide(newSideCh))
+		scope.Track(m.cluster.SubscribeNewTx(newTxCh))
+		m.traverserSubscriptions.Store(ev.GetHash(), scope)
 
 		tx := NewTransaction(ev.Hash, ev.Sender, ev.Nonce, newHeadCh, newSideCh, newTxCh)
 		traverser := NewTraverser(m.cluster, tx, m.txController)
@@ -91,6 +95,11 @@ func (m *EthMonitor) traverseLoop() {
 		if !selected.tx.HasFinalized() {
 			// the tx is suspended
 			m.traverserQueue.Push(selected)
+		} else {
+			// unsubscribe subscriptions
+			scope, _ := m.traverserSubscriptions.Load(selected.Tx().Hash())
+			scope.(*event.SubscriptionScope).Close()
+			m.traverserSubscriptions.Delete(selected.Tx().Hash())
 		}
 	}
 }

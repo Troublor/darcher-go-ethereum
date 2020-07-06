@@ -1,7 +1,11 @@
 {
   "name": "darcher-go-ethereum",
   "version": "1.0.0",
+  "repository": {
+    "url": "https://github.com/Troublor/dArcher"
+  },
+  "author": "Troublor",
+  "license": "ISC",
   "dependencies": {
-    
   }
 }

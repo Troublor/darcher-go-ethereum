@@ -8,8 +8,8 @@ import (
 )
 
 type txStateChange struct {
-	From common.LifecycleState
-	To   common.LifecycleState
+	From rpc.TxState
+	To   rpc.TxState
 }
 type Transaction struct {
 	hash   string
@@ -22,7 +22,7 @@ type Transaction struct {
 
 	executedBlock *rpc.ChainHead
 	stateRWLock   sync.RWMutex
-	state         common.LifecycleState
+	state         rpc.TxState
 
 	stateChangeFeed event.Feed
 }
@@ -39,7 +39,7 @@ func NewTransaction(
 		hash:      hash,
 		sender:    sender,
 		nonce:     nonce,
-		state:     common.CREATED,
+		state:     rpc.TxState_CREATED,
 		newHeadCh: newHeadCh,
 		newSideCh: newSideCh,
 		newTxCh:   newTxCh,
@@ -52,7 +52,7 @@ func (t *Transaction) SubscribeStateChange(ch chan<- txStateChange) event.Subscr
 	return t.stateChangeFeed.Subscribe(ch)
 }
 
-func (t *Transaction) WaitForState(state common.LifecycleState) {
+func (t *Transaction) WaitForState(state rpc.TxState) {
 	stateCh := make(chan txStateChange)
 	sub := t.SubscribeStateChange(stateCh)
 	defer sub.Unsubscribe()
@@ -77,26 +77,27 @@ func (t *Transaction) stateLoop() {
 				continue
 			}
 			switch t.State() {
-			case common.CREATED:
+			case rpc.TxState_CREATED:
 				fallthrough
-			case common.PENDING:
+			case rpc.TxState_PENDING:
 				for _, tx := range ev.Txs {
 					if tx == t.hash {
 						t.executedBlock = ev
-						t.setState(common.EXECUTED)
+						t.setState(rpc.TxState_EXECUTED)
 						break
 					}
 				}
-			case common.EXECUTED:
+			case rpc.TxState_EXECUTED:
 				if ev.Hash != t.executedBlock.Hash && ev.Number <= t.executedBlock.Number {
-					t.setState(common.PENDING)
+					t.setState(rpc.TxState_PENDING)
+					return
 				} else if ev.Number-t.executedBlock.Number >= common.ConfirmationsCount {
-					t.setState(common.CONFIRMED)
+					t.setState(rpc.TxState_CONFIRMED)
 					return
 				}
-			case common.CONFIRMED:
+			case rpc.TxState_CONFIRMED:
 				return
-			case common.DROPPED:
+			case rpc.TxState_DROPPED:
 				return
 			}
 		case ev := <-t.newSideCh:
@@ -104,27 +105,27 @@ func (t *Transaction) stateLoop() {
 				continue
 			}
 			switch t.State() {
-			case common.CREATED:
+			case rpc.TxState_CREATED:
 				continue
-			case common.PENDING:
+			case rpc.TxState_PENDING:
 				continue
-			case common.EXECUTED:
+			case rpc.TxState_EXECUTED:
 				if ev.Hash != t.executedBlock.Hash && ev.Number == t.executedBlock.Number {
-					t.setState(common.PENDING)
+					t.setState(rpc.TxState_PENDING)
 				}
 				// TODO what if tx is executed in the incoming side chain?
-			case common.CONFIRMED:
+			case rpc.TxState_CONFIRMED:
 				return
-			case common.DROPPED:
+			case rpc.TxState_DROPPED:
 				return
 			}
 		case ev := <-t.newTxCh:
 			if ev.GetRole() != rpc.Role_DOER {
 				continue
 			}
-			if t.state == common.PENDING || t.state == common.CREATED {
+			if t.state == rpc.TxState_PENDING || t.state == rpc.TxState_CREATED {
 				if ev.Hash != t.hash && ev.Sender == t.sender && ev.Nonce == t.nonce {
-					t.setState(common.DROPPED)
+					t.setState(rpc.TxState_DROPPED)
 				}
 			}
 		}
@@ -132,12 +133,12 @@ func (t *Transaction) stateLoop() {
 }
 
 func (t *Transaction) Schedule() {
-	if t.State() == common.CREATED {
-		t.setState(common.PENDING)
+	if t.State() == rpc.TxState_CREATED {
+		t.setState(rpc.TxState_PENDING)
 	}
 }
 
-func (t *Transaction) setState(state common.LifecycleState) {
+func (t *Transaction) setState(state rpc.TxState) {
 	t.stateRWLock.Lock()
 	defer t.stateRWLock.Unlock()
 	from := t.state
@@ -148,7 +149,7 @@ func (t *Transaction) setState(state common.LifecycleState) {
 	})
 }
 
-func (t *Transaction) State() common.LifecycleState {
+func (t *Transaction) State() rpc.TxState {
 	t.stateRWLock.RLock()
 	defer t.stateRWLock.RUnlock()
 	return t.state
@@ -163,5 +164,5 @@ func (t *Transaction) PrettyHash() string {
 }
 
 func (t *Transaction) HasFinalized() bool {
-	return t.State() == common.CONFIRMED || t.State() == common.DROPPED
+	return t.State() == rpc.TxState_CONFIRMED || t.State() == rpc.TxState_DROPPED
 }

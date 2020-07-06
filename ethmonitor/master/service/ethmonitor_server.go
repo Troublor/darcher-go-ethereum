@@ -23,7 +23,7 @@ func NewServer(port int) *EthMonitorServer {
 func (s *EthMonitorServer) Start() {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", s.port))
 	if err != nil {
-		log.Error("Start master monitor legacyServer failed", "err", err)
+		log.Error("Start master monitor server failed", "err", err)
 		return
 	}
 	grpcServer := grpc.NewServer()

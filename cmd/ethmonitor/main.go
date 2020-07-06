@@ -71,8 +71,8 @@ func action(ctx *cli.Context) error {
 		controller = &ethmonitor.TrivialController{}
 	case "console":
 		controller = ethmonitor.NewConsoleController()
-	case "dArcher":
-		controller = ethmonitor.NewDArcherController()
+	case "darcher":
+		controller = ethmonitor.NewDarcherController()
 	case "robustnessTest":
 		controller = ethmonitor.NewRobustnessTestController()
 	}

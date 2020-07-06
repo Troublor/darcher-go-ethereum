@@ -2,10 +2,12 @@ package master
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"github.com/ethereum/go-ethereum/ethmonitor/master/common"
-	"github.com/ethereum/go-ethereum/ethmonitor/master/service"
+	"github.com/ethereum/go-ethereum/ethmonitor/rpc"
 	"github.com/ethereum/go-ethereum/log"
+	"google.golang.org/grpc"
 	"os"
 	"strconv"
 	"strings"
@@ -16,9 +18,9 @@ type TxController interface {
 	// this method is called when traverser for tx is created, returns a bool indicating whether schedule the tx (return hash to dApp)
 	TxReceivedHook(txHash string)
 	// this method is called when tx state is about to change
-	OnStateChange(txHash string, fromState common.LifecycleState, toState common.LifecycleState)
+	OnStateChange(txHash string, fromState rpc.TxState, toState rpc.TxState)
 	// this method is called between each tx state transition
-	PivotReachedHook(txHash string, currentState common.LifecycleState) (nextState common.LifecycleState, suspend bool)
+	PivotReachedHook(txHash string, currentState rpc.TxState) (nextState rpc.TxState, suspend bool)
 	// this method is called when traverser finishes traverse
 	TxFinishedHook(txHash string)
 	// this method is called when traverser starts traverse
@@ -38,12 +40,12 @@ func (t *TrivialController) TxReceivedHook(txHash string) {
 	return
 }
 
-func (t *TrivialController) OnStateChange(txHash string, fromState common.LifecycleState, toState common.LifecycleState) {
+func (t *TrivialController) OnStateChange(txHash string, fromState rpc.TxState, toState rpc.TxState) {
 	return
 }
 
-func (t *TrivialController) PivotReachedHook(txHash string, currentState common.LifecycleState) (nextState common.LifecycleState, suspend bool) {
-	return common.CONFIRMED, false
+func (t *TrivialController) PivotReachedHook(txHash string, currentState rpc.TxState) (nextState rpc.TxState, suspend bool) {
+	return rpc.TxState_CONFIRMED, false
 }
 
 func (t *TrivialController) TxFinishedHook(txHash string) {
@@ -110,29 +112,29 @@ func (c *ConsoleController) TxReceivedHook(txHash string) {
 	log.Info("Tx received", "tx", txHash)
 }
 
-func (c *ConsoleController) PivotReachedHook(txHash string, currentState common.LifecycleState) (nextState common.LifecycleState, suspend bool) {
+func (c *ConsoleController) PivotReachedHook(txHash string, currentState rpc.TxState) (nextState rpc.TxState, suspend bool) {
 	fmt.Println("================= Console Controller =================")
-	if currentState == common.CONFIRMED || currentState == common.DROPPED {
+	if currentState == rpc.TxState_CONFIRMED || currentState == rpc.TxState_DROPPED {
 		return currentState, false
 	}
 	options := make([]string, 0)
-	if currentState != common.PENDING {
-		options = append(options, string(common.PENDING))
+	if currentState != rpc.TxState_PENDING {
+		options = append(options, rpc.TxState_PENDING.String())
 	}
-	if currentState != common.EXECUTED {
-		options = append(options, string(common.EXECUTED))
+	if currentState != rpc.TxState_EXECUTED {
+		options = append(options, rpc.TxState_EXECUTED.String())
 	}
-	options = append(options, string(common.CONFIRMED))
-	options = append(options, string(common.DROPPED))
+	options = append(options, rpc.TxState_CONFIRMED.String())
+	options = append(options, rpc.TxState_DROPPED.String())
 	options = append(options, "suspend")
 
 	index := c.selectFromOptions(fmt.Sprintf("Traverse pivot reached, current state: %s", currentState), "Select next state: ", options)
 	if index == len(options)-1 {
 		// select to suspend
-		return "", true
+		return 0, true
 	}
 	fmt.Println("================= Console Controller =================")
-	return common.LifecycleState(options[index]), false
+	return rpc.TxState(rpc.TxState_value[options[index]]), false
 }
 
 func (c *ConsoleController) TxFinishedHook(txHash string) {
@@ -143,86 +145,93 @@ func (c *ConsoleController) TxResumeHook(txHash string) {
 	log.Debug("Resume traverse tx", "tx", common.PrettifyHash(txHash))
 }
 
-func (c *ConsoleController) OnStateChange(txHash string, currentState common.LifecycleState, nextState common.LifecycleState) {
+func (c *ConsoleController) OnStateChange(txHash string, currentState rpc.TxState, nextState rpc.TxState) {
 	log.Debug("tx state change", "tx", common.PrettifyHash(txHash), "from", currentState, "to", nextState)
 	return
 }
 
-type DArcherController struct {
-	dArcher  *service.DArcher
-	txStates map[string]common.LifecycleState
+type DarcherController struct {
+	txStates map[string]rpc.TxState
+
+	ctx    context.Context
+	client rpc.DarcherControllerServiceClient
 }
 
-func NewDArcherController() *DArcherController {
-	return &DArcherController{
-		dArcher:  service.NewDArcher(common.DArcherIP, common.DArcherPort),
-		txStates: make(map[string]common.LifecycleState),
+func NewDarcherController() *DarcherController {
+	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", common.DarcherIP, common.DarcherPort), grpc.WithInsecure())
+	if err != nil {
+		log.Error("Connect to Darcher failed", "err", err)
+		return nil
+	}
+	return &DarcherController{
+		txStates: make(map[string]rpc.TxState),
+
+		ctx:    context.Background(),
+		client: rpc.NewDarcherControllerServiceClient(conn),
 	}
 }
 
-func (d *DArcherController) SelectTxToTraverse(txs []*Transaction) (tx *Transaction) {
+func (d *DarcherController) SelectTxToTraverse(txs []*Transaction) (tx *Transaction) {
 	txHashes := make([]string, len(txs))
 	m := make(map[string]*Transaction)
 	for i, tx := range txs {
 		txHashes[i] = tx.Hash()
 		m[txHashes[i]] = tx
 	}
-	hash := d.dArcher.SelectTxToTraverse(txHashes)
-	return m[hash]
-
-}
-
-func (d *DArcherController) TxReceivedHook(txHash string) {
-	d.txStates[txHash] = common.CREATED
-	d.dArcher.NotifyTxReceived(txHash)
-}
-
-func (d *DArcherController) PivotReachedHook(txHash string, currentState common.LifecycleState) (nextState common.LifecycleState, suspend bool) {
-	state := d.txStates[txHash]
-	switch state {
-	case common.CREATED:
-		nextState = common.PENDING
-		d.dArcher.NotifyPivotReached(txHash, d.txStates[txHash], nextState)
-		d.txStates[txHash] = nextState
-		return nextState, false
-	case common.PENDING:
-		nextState = common.EXECUTED
-		d.dArcher.NotifyPivotReached(txHash, d.txStates[txHash], nextState)
-		d.txStates[txHash] = nextState
-		return nextState, false
-	case common.EXECUTED:
-		nextState = common.PENDING
-		d.dArcher.NotifyPivotReached(txHash, d.txStates[txHash], common.REVERTED)
-		d.txStates[txHash] = common.REVERTED
-		return nextState, false
-	case common.REVERTED:
-		nextState = common.EXECUTED
-		d.dArcher.NotifyPivotReached(txHash, d.txStates[txHash], common.REEXECUTED)
-		d.txStates[txHash] = common.REEXECUTED
-		return nextState, false
-	case common.REEXECUTED:
-		nextState = common.CONFIRMED
-		d.dArcher.NotifyPivotReached(txHash, d.txStates[txHash], nextState)
-		d.txStates[txHash] = nextState
-		return nextState, false
-	case common.CONFIRMED:
-		return common.CONFIRMED, false
-	case common.DROPPED:
-		return common.DROPPED, false
+	reply, err := d.client.SelectTx(d.ctx, &rpc.SelectTxControlMsg{
+		CandidateHashes: txHashes,
+	})
+	if err != nil {
+		log.Error("SelectTx RPC error", "err", err)
+		return txs[0]
 	}
-	return state, false
+	return m[reply.Selection]
+
 }
 
-func (d *DArcherController) TxFinishedHook(txHash string) {
-	d.dArcher.NotifyTxFinished(txHash)
+func (d *DarcherController) TxReceivedHook(txHash string) {
+	d.txStates[txHash] = rpc.TxState_CREATED
+	_, err := d.client.NotifyTxReceived(d.ctx, &rpc.TxReceivedMsg{Hash: txHash})
+	if err != nil {
+		log.Error("NotifyTxReceived RPC error", "err", err)
+	}
 }
 
-func (d *DArcherController) TxResumeHook(txHash string) {
-	d.dArcher.NotifyTxStart(txHash)
+func (d *DarcherController) PivotReachedHook(txHash string, currentState rpc.TxState) (nextState rpc.TxState, suspend bool) {
+	reply, err := d.client.AskForNextState(d.ctx, &rpc.TxStateControlMsg{
+		Hash:         txHash,
+		CurrentState: currentState,
+	})
+	if err != nil {
+		log.Error("AskForNextState RPC error", "err", err)
+		return rpc.TxState_CONFIRMED, false
+	}
+	return reply.GetNextState(), false
+
 }
 
-func (d *DArcherController) OnStateChange(txHash string, currentState common.LifecycleState, nextState common.LifecycleState) {
-	d.dArcher.NotifyTxStateChange(txHash, currentState, nextState)
+func (d *DarcherController) TxFinishedHook(txHash string) {
+	d.txStates[txHash] = rpc.TxState_CREATED
+	_, err := d.client.NotifyTxFinished(d.ctx, &rpc.TxFinishedMsg{Hash: txHash})
+	if err != nil {
+		log.Error("NotifyTxFinished RPC error", "err", err)
+	}
+}
+
+func (d *DarcherController) TxResumeHook(txHash string) {
+	return
+}
+
+func (d *DarcherController) OnStateChange(txHash string, currentState rpc.TxState, nextState rpc.TxState) {
+	d.txStates[txHash] = rpc.TxState_CREATED
+	_, err := d.client.NotifyTxStateChangeMsg(d.ctx, &rpc.TxStateChangeMsg{
+		Hash: txHash,
+		From: currentState,
+		To:   nextState,
+	})
+	if err != nil {
+		log.Error("NotifyTxStateChangeMsg RPC error", "err", err)
+	}
 }
 
 type RobustnessTestController struct {
@@ -243,30 +252,30 @@ func (c *RobustnessTestController) TxReceivedHook(txHash string) {
 	return
 }
 
-func (c *RobustnessTestController) OnStateChange(txHash string, fromState common.LifecycleState, toState common.LifecycleState) {
+func (c *RobustnessTestController) OnStateChange(txHash string, fromState rpc.TxState, toState rpc.TxState) {
 	log.Debug("tx state change", "tx", common.PrettifyHash(txHash), "from", fromState, "to", toState)
 	return
 }
 
-func (c *RobustnessTestController) PivotReachedHook(txHash string, currentState common.LifecycleState) (nextState common.LifecycleState, suspend bool) {
+func (c *RobustnessTestController) PivotReachedHook(txHash string, currentState rpc.TxState) (nextState rpc.TxState, suspend bool) {
 	log.Info("Pivot reached", "counter", c.counter)
 	c.counter += 1
 	if c.counter > 10 {
-		return common.CONFIRMED, false
+		return rpc.TxState_CONFIRMED, false
 	}
 	switch currentState {
-	case common.CREATED:
-		return common.PENDING, false
-	case common.PENDING:
-		return common.EXECUTED, false
-	case common.EXECUTED:
-		return common.PENDING, false
-	case common.CONFIRMED:
-		return common.CONFIRMED, false
-	case common.DROPPED:
-		return common.DROPPED, false
+	case rpc.TxState_CREATED:
+		return rpc.TxState_PENDING, false
+	case rpc.TxState_PENDING:
+		return rpc.TxState_EXECUTED, false
+	case rpc.TxState_EXECUTED:
+		return rpc.TxState_PENDING, false
+	case rpc.TxState_CONFIRMED:
+		return rpc.TxState_CONFIRMED, false
+	case rpc.TxState_DROPPED:
+		return rpc.TxState_DROPPED, false
 	}
-	return common.CONFIRMED, false
+	return rpc.TxState_CONFIRMED, false
 }
 
 func (c *RobustnessTestController) TxFinishedHook(txHash string) {

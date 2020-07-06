@@ -47,6 +47,7 @@ func (s *BlockchainStatusService) NotifyNewChainHead(stream rpc.BlockchainStatus
 		if err != nil {
 			return err
 		}
+		log.Debug("New chain head", "role", newChainHead.GetRole().String(), "number", newChainHead.GetNumber(), "hash", common.PrettifyHash(newChainHead.GetHash()))
 		s.newChainHeadFeed.Send(newChainHead)
 	}
 }
@@ -63,6 +64,7 @@ func (s *BlockchainStatusService) NotifyNewChainSide(stream rpc.BlockchainStatus
 		if err != nil {
 			return err
 		}
+		log.Debug("New chain side", "role", newChainSide.GetRole().String(), "number", newChainSide.GetNumber(), "hash", common.PrettifyHash(newChainSide.GetHash()))
 		s.newChainSideFeed.Send(newChainSide)
 	}
 }
@@ -79,6 +81,7 @@ func (s *BlockchainStatusService) NotifyNewTx(stream rpc.BlockchainStatusService
 		if err != nil {
 			return err
 		}
+		log.Debug("New tx", "role", newTx.GetRole().String(), "hash", common.PrettifyHash(newTx.GetHash()))
 		s.newTxFeed.Send(newTx)
 	}
 }

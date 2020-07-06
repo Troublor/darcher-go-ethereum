@@ -71,7 +71,7 @@ func NewCluster(config ClusterConfig) *Cluster {
 
 /**
 Start the cluster will do the following things
-1. start the rpc legacyServer which monitor the geth nodes
+1. start the rpc server which monitor the geth nodes
 2. start doer and talker and wait for their connection
 Upon the start of geth nodes, each node should provide their:
 1. control port (the rpc legacyServer)
@@ -80,10 +80,7 @@ Upon the start of geth nodes, each node should provide their:
 Start() takes the config value and a boolean telling whether cluster should automatically start doer and talker geth node or not
 */
 func (c *Cluster) Start(integrated bool) {
-	// initiate rpc legacyServer and start it
-	//server := rpc.NewServer(c.config.ServerPort)
-	//server.Start()
-	//c.legacyServer = server
+	// initiate rpc server and start it
 	c.server = service.NewServer(c.config.ServerPort)
 	c.server.Start()
 
@@ -222,11 +219,13 @@ wait:
 		case <-time.After(timeout):
 			return TimeoutErr
 		case ev := <-doerUpdateCh:
+			log.Debug("doer update", "doerNum", ev.GetNumber(), "doerTd", ev.GetTd(), "talkerNum", c.GetTalkerCurrentHead().GetNumber(), "talkerTd", c.GetTalkerCurrentHead().GetTd())
 			if ev.GetTd() == c.GetTalkerCurrentHead().GetTd() {
 				current = ev
 				break wait
 			}
 		case ev := <-talkerUpdateCh:
+			log.Debug("talker update", "talkerNum", ev.GetNumber(), "talkerTd", ev.GetTd(), "doerNum", c.GetDoerCurrentHead().GetNumber(), "doerTd", c.GetDoerCurrentHead().GetTd())
 			if ev.Td == c.GetDoerCurrentHead().GetTd() {
 				current = ev
 				break wait

@@ -33,7 +33,7 @@ func NewP2PNetworkServiceClient(cc grpc.ClientConnInterface) P2PNetworkServiceCl
 
 func (c *p2PNetworkServiceClient) NotifyNodeStart(ctx context.Context, in *Node, opts ...grpc.CallOption) (*empty.Empty, error) {
 	out := new(empty.Empty)
-	err := c.cc.Invoke(ctx, "/ethmonitor.P2PNetworkService/notifyNodeStart", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/darcher.P2PNetworkService/notifyNodeStart", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func (c *p2PNetworkServiceClient) NotifyNodeStart(ctx context.Context, in *Node,
 }
 
 func (c *p2PNetworkServiceClient) AddPeerControl(ctx context.Context, opts ...grpc.CallOption) (P2PNetworkService_AddPeerControlClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_P2PNetworkService_serviceDesc.Streams[0], "/ethmonitor.P2PNetworkService/addPeerControl", opts...)
+	stream, err := c.cc.NewStream(ctx, &_P2PNetworkService_serviceDesc.Streams[0], "/darcher.P2PNetworkService/addPeerControl", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func (x *p2PNetworkServiceAddPeerControlClient) Recv() (*AddPeerControlMsg, erro
 }
 
 func (c *p2PNetworkServiceClient) RemovePeerControl(ctx context.Context, opts ...grpc.CallOption) (P2PNetworkService_RemovePeerControlClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_P2PNetworkService_serviceDesc.Streams[1], "/ethmonitor.P2PNetworkService/removePeerControl", opts...)
+	stream, err := c.cc.NewStream(ctx, &_P2PNetworkService_serviceDesc.Streams[1], "/darcher.P2PNetworkService/removePeerControl", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +141,7 @@ func _P2PNetworkService_NotifyNodeStart_Handler(srv interface{}, ctx context.Con
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/ethmonitor.P2PNetworkService/NotifyNodeStart",
+		FullMethod: "/darcher.P2PNetworkService/NotifyNodeStart",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(P2PNetworkServiceServer).NotifyNodeStart(ctx, req.(*Node))
@@ -202,7 +202,7 @@ func (x *p2PNetworkServiceRemovePeerControlServer) Recv() (*RemovePeerControlMsg
 }
 
 var _P2PNetworkService_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "ethmonitor.P2PNetworkService",
+	ServiceName: "darcher.P2PNetworkService",
 	HandlerType: (*P2PNetworkServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

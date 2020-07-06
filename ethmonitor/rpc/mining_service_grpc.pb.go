@@ -35,7 +35,7 @@ func NewMiningServiceClient(cc grpc.ClientConnInterface) MiningServiceClient {
 }
 
 func (c *miningServiceClient) MineBlocksControl(ctx context.Context, opts ...grpc.CallOption) (MiningService_MineBlocksControlClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_MiningService_serviceDesc.Streams[0], "/ethmonitor.MiningService/mineBlocksControl", opts...)
+	stream, err := c.cc.NewStream(ctx, &_MiningService_serviceDesc.Streams[0], "/darcher.MiningService/mineBlocksControl", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func (x *miningServiceMineBlocksControlClient) Recv() (*MineBlocksControlMsg, er
 }
 
 func (c *miningServiceClient) MineBlocksExceptTxControl(ctx context.Context, opts ...grpc.CallOption) (MiningService_MineBlocksExceptTxControlClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_MiningService_serviceDesc.Streams[1], "/ethmonitor.MiningService/mineBlocksExceptTxControl", opts...)
+	stream, err := c.cc.NewStream(ctx, &_MiningService_serviceDesc.Streams[1], "/darcher.MiningService/mineBlocksExceptTxControl", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (x *miningServiceMineBlocksExceptTxControlClient) Recv() (*MineBlocksExcept
 }
 
 func (c *miningServiceClient) MineBlocksWithoutTxControl(ctx context.Context, opts ...grpc.CallOption) (MiningService_MineBlocksWithoutTxControlClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_MiningService_serviceDesc.Streams[2], "/ethmonitor.MiningService/mineBlocksWithoutTxControl", opts...)
+	stream, err := c.cc.NewStream(ctx, &_MiningService_serviceDesc.Streams[2], "/darcher.MiningService/mineBlocksWithoutTxControl", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +128,7 @@ func (x *miningServiceMineBlocksWithoutTxControlClient) Recv() (*MineBlocksWitho
 }
 
 func (c *miningServiceClient) MineTdControl(ctx context.Context, opts ...grpc.CallOption) (MiningService_MineTdControlClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_MiningService_serviceDesc.Streams[3], "/ethmonitor.MiningService/mineTdControl", opts...)
+	stream, err := c.cc.NewStream(ctx, &_MiningService_serviceDesc.Streams[3], "/darcher.MiningService/mineTdControl", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +159,7 @@ func (x *miningServiceMineTdControlClient) Recv() (*MineTdControlMsg, error) {
 }
 
 func (c *miningServiceClient) MineTxControl(ctx context.Context, opts ...grpc.CallOption) (MiningService_MineTxControlClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_MiningService_serviceDesc.Streams[4], "/ethmonitor.MiningService/mineTxControl", opts...)
+	stream, err := c.cc.NewStream(ctx, &_MiningService_serviceDesc.Streams[4], "/darcher.MiningService/mineTxControl", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +190,7 @@ func (x *miningServiceMineTxControlClient) Recv() (*MineTxControlMsg, error) {
 }
 
 func (c *miningServiceClient) ScheduleTxControl(ctx context.Context, opts ...grpc.CallOption) (MiningService_ScheduleTxControlClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_MiningService_serviceDesc.Streams[5], "/ethmonitor.MiningService/scheduleTxControl", opts...)
+	stream, err := c.cc.NewStream(ctx, &_MiningService_serviceDesc.Streams[5], "/darcher.MiningService/scheduleTxControl", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +221,7 @@ func (x *miningServiceScheduleTxControlClient) Recv() (*ScheduleTxControlMsg, er
 }
 
 func (c *miningServiceClient) CheckTxInPoolControl(ctx context.Context, opts ...grpc.CallOption) (MiningService_CheckTxInPoolControlClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_MiningService_serviceDesc.Streams[6], "/ethmonitor.MiningService/checkTxInPoolControl", opts...)
+	stream, err := c.cc.NewStream(ctx, &_MiningService_serviceDesc.Streams[6], "/darcher.MiningService/checkTxInPoolControl", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -479,7 +479,7 @@ func (x *miningServiceCheckTxInPoolControlServer) Recv() (*CheckTxInPoolControlM
 }
 
 var _MiningService_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "ethmonitor.MiningService",
+	ServiceName: "darcher.MiningService",
 	HandlerType: (*MiningServiceServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{

@@ -9,8 +9,8 @@ const EventCacheSize = 10
 const ConfirmationsCount uint64 = 1
 const ClusterTaskTimeout = 3 * time.Second
 
-const DArcherIP = "127.0.0.1"
-const DArcherPort = 1236
+const DarcherIP = "127.0.0.1"
+const DarcherPort = 1236
 
 type LifecycleState string
 

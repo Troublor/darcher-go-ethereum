@@ -46,6 +46,10 @@ func (t *Traverser) notifyTxStateChangeLoop() {
 	}
 }
 
+func (t *Traverser) Tx() *Transaction {
+	return t.tx
+}
+
 /**
 Start doing traverse on the Transaction
 */
@@ -78,18 +82,18 @@ func (t *Traverser) ResumeTraverse() {
 	log.Info("Tx traverse finished", "tx", t.tx.PrettyHash())
 }
 
-func (t *Traverser) transitStateTo(state common.LifecycleState) error {
+func (t *Traverser) transitStateTo(state rpc.TxState) error {
 	switch t.tx.State() {
-	case common.CREATED:
+	case rpc.TxState_CREATED:
 		return t.transitFromCreatedTo(state)
-	case common.PENDING:
+	case rpc.TxState_PENDING:
 		return t.transitFromPendingTo(state)
-	case common.EXECUTED:
+	case rpc.TxState_EXECUTED:
 		return t.transitFromExecutedTo(state)
-	case common.CONFIRMED:
+	case rpc.TxState_CONFIRMED:
 		log.Warn("Tx is already confirmed, not transiting state", "tx", t.tx.Hash())
 		return nil
-	case common.DROPPED:
+	case rpc.TxState_DROPPED:
 		log.Warn("Tx is already dropped, not transiting state", "tx", t.tx.Hash())
 		return nil
 	}
@@ -99,25 +103,25 @@ func (t *Traverser) transitStateTo(state common.LifecycleState) error {
 /**
 This assumes tx is currently at created state
 */
-func (t *Traverser) transitFromCreatedTo(state common.LifecycleState) error {
+func (t *Traverser) transitFromCreatedTo(state rpc.TxState) error {
 	switch state {
-	case common.CREATED:
+	case rpc.TxState_CREATED:
 		return nil
-	case common.PENDING:
+	case rpc.TxState_PENDING:
 		return t.Schedule()
-	case common.EXECUTED:
+	case rpc.TxState_EXECUTED:
 		return common.ExecuteSerially([]func() error{
 			t.Schedule,
 			t.Execute,
 		})
-	case common.CONFIRMED:
+	case rpc.TxState_CONFIRMED:
 		return common.ExecuteSerially([]func() error{
 			t.Schedule,
 			t.Execute,
 			t.Confirm,
 			t.Synchronize,
 		})
-	case common.DROPPED:
+	case rpc.TxState_DROPPED:
 		return common.ExecuteSerially([]func() error{
 			t.Schedule,
 			t.Drop,
@@ -129,42 +133,42 @@ func (t *Traverser) transitFromCreatedTo(state common.LifecycleState) error {
 /**
 This assumes tx is currently at pending state
 */
-func (t *Traverser) transitFromPendingTo(state common.LifecycleState) error {
+func (t *Traverser) transitFromPendingTo(state rpc.TxState) error {
 	switch state {
-	case common.CREATED:
+	case rpc.TxState_CREATED:
 		log.Warn("tx cannot transit state from pending to created", "tx", t.tx.Hash())
 		return nil
-	case common.PENDING:
+	case rpc.TxState_PENDING:
 		return nil
-	case common.EXECUTED:
+	case rpc.TxState_EXECUTED:
 		return t.Execute()
-	case common.CONFIRMED:
+	case rpc.TxState_CONFIRMED:
 		return common.ExecuteSerially([]func() error{
 			t.Execute,
 			t.Confirm,
 			t.Synchronize,
 		})
-	case common.DROPPED:
+	case rpc.TxState_DROPPED:
 		return t.Drop()
 	}
 	return nil
 }
 
-func (t *Traverser) transitFromExecutedTo(state common.LifecycleState) error {
+func (t *Traverser) transitFromExecutedTo(state rpc.TxState) error {
 	switch state {
-	case common.CREATED:
+	case rpc.TxState_CREATED:
 		log.Warn("tx cannot transit state from executed to created", "tx", t.tx.Hash())
 		return nil
-	case common.PENDING:
+	case rpc.TxState_PENDING:
 		return t.Revert()
-	case common.CONFIRMED:
+	case rpc.TxState_CONFIRMED:
 		return common.ExecuteSerially([]func() error{
 			t.Confirm,
 			t.Synchronize,
 		})
-	case common.EXECUTED:
+	case rpc.TxState_EXECUTED:
 		return nil
-	case common.DROPPED:
+	case rpc.TxState_DROPPED:
 		return common.ExecuteSerially([]func() error{
 			t.Revert,
 			t.Drop,
@@ -196,7 +200,7 @@ func (t *Traverser) Execute() error {
 		log.Error("Schedule tx error", "err", err, "tx", t.tx.PrettyHash())
 		return err
 	}
-	t.tx.WaitForState(common.EXECUTED)
+	t.tx.WaitForState(rpc.TxState_EXECUTED)
 	return nil
 }
 
@@ -205,7 +209,7 @@ func (t *Traverser) Revert() error {
 	doneCh, errCh := t.cluster.ReorgAsyncQueued()
 	select {
 	case <-doneCh:
-		t.tx.WaitForState(common.PENDING)
+		t.tx.WaitForState(rpc.TxState_PENDING)
 		log.Info("Blockchain reorganization happens")
 	case err := <-errCh:
 		log.Error("Revert tx failed", "tx", t.tx.PrettyHash(), "err", err)
@@ -219,7 +223,7 @@ func (t *Traverser) Confirm() error {
 	doneCh, errCh := t.cluster.MineBlocksWithoutTxAsyncQueued(rpc.Role_DOER, count)
 	select {
 	case <-doneCh:
-		t.tx.WaitForState(common.CONFIRMED)
+		t.tx.WaitForState(rpc.TxState_CONFIRMED)
 		log.Info("Transaction confirmed", "tx", t.tx.PrettyHash(), "confirmations", common.ConfirmationsCount)
 	case err := <-errCh:
 		log.Error("Confirm tx failed", "tx", t.tx.PrettyHash(), "err", err)
