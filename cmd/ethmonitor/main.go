@@ -26,6 +26,10 @@ var (
 		Usage: "Logging verbosity: 0=silent, 1=error, 2=warn, 3=info, 4=debug, 5=detail",
 		Value: 3,
 	}
+	DarcherPort = &cli.IntFlag{
+		Name:  "darcherPort",
+		Value: 0,
+	}
 )
 
 var (
@@ -33,6 +37,7 @@ var (
 		Port,
 		Controller,
 		VerbosityFlag,
+		DarcherPort,
 	}
 )
 
@@ -72,11 +77,11 @@ func action(ctx *cli.Context) error {
 	case "console":
 		controller = ethmonitor.NewConsoleController()
 	case "darcher":
-		controller = ethmonitor.NewDarcherController()
+		darcherPort := ctx.Int(DarcherPort.Name)
+		controller = ethmonitor.NewDarcherController(darcherPort)
 	case "robustnessTest":
 		controller = ethmonitor.NewRobustnessTestController()
 	}
-	cluster := ethmonitor.NewMonitor(controller, ethmonitor.ClusterConfig{ConfirmationNumber: 1, ServerPort: 8989})
 	var err error
 	if port == 0 {
 		port, err = freeport.GetFreePort()
@@ -85,6 +90,7 @@ func action(ctx *cli.Context) error {
 		}
 	}
 	log.Info("EthMonitor started", "port", port, "controller", ctx.String(Controller.Name))
+	cluster := ethmonitor.NewMonitor(controller, ethmonitor.ClusterConfig{ConfirmationNumber: 1, ServerPort: port})
 	cluster.Start()
 	return nil
 }

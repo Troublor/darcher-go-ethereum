@@ -157,12 +157,13 @@ type DarcherController struct {
 	client rpc.DarcherControllerServiceClient
 }
 
-func NewDarcherController() *DarcherController {
-	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", common.DarcherIP, common.DarcherPort), grpc.WithInsecure())
+func NewDarcherController(darcherPort int) *DarcherController {
+	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", "localhost", darcherPort), grpc.WithInsecure())
 	if err != nil {
 		log.Error("Connect to Darcher failed", "err", err)
 		return nil
 	}
+	log.Info("Connected to Darcher")
 	return &DarcherController{
 		txStates: make(map[string]rpc.TxState),
 

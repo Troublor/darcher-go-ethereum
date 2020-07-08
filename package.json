@@ -6,6 +6,12 @@
   },
   "author": "Troublor",
   "license": "ISC",
-  "dependencies": {
-  }
+  "scripts": {
+    "build:ethmonitor": "make ethmonitor",
+    "build:geth": "make geth",
+    "start:ethmonitor": "./build/bin/ethmonitor",
+    "start:geth": "./build/bin/geth"
+  },
+  "dependencies": {},
+  "devDependencies": {}
 }
