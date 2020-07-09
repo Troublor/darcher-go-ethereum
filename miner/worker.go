@@ -555,10 +555,17 @@ func (w *worker) taskLoop() {
 				case task := <-ch:
 					go func() {
 						// reset prev when mining task achieves its target
-						<-task.TargetAchievedCh()
-						prevRWMutex.Lock()
-						prev = common.Hash{}
-						prevRWMutex.Unlock()
+						chh := make(chan ethmonitor.Task, 1)
+						sub := w.monitor.SubscribeNewTask(ch)
+						defer sub.Unsubscribe()
+						select {
+						case <-chh:
+							// when new task comes and previous task is not achieve, this means it is cancelled
+						case <-task.TargetAchievedCh():
+							prevRWMutex.Lock()
+							prev = common.Hash{}
+							prevRWMutex.Unlock()
+						}
 					}()
 				case <-w.exitCh:
 					return
@@ -583,12 +590,13 @@ func (w *worker) taskLoop() {
 			}
 			// Reject duplicate sealing work due to resubmitting.
 			sealHash := w.engine.SealHash(task.block.Header())
+			log.Info("receiving sealing task", "sealHash", sealHash)
 			// TODO troublor modify starts
 			prevRWMutex.RLock()
 			// troublor modify ends
 			if sealHash == prev {
 				// TODO troublor modify starts
-				log.Debug("reject duplicate sealing work", "sealHash", sealHash)
+				log.Info("reject duplicate sealing work", "sealHash", sealHash)
 				prevRWMutex.RUnlock()
 				// troublor modify ends
 				continue
@@ -619,7 +627,7 @@ func (w *worker) taskLoop() {
 				log.Warn("Block sealing failed", "err", err)
 			} else /* TODO troublor modify start */
 			{
-				log.Debug("Engine sealing", "sealHash", sealHash)
+				log.Info("Engine sealing", "sealHash", sealHash)
 			}
 			// troublor modify ends
 		case <-w.exitCh:

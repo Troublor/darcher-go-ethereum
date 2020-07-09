@@ -334,7 +334,23 @@ func (t *TxExecuteTask) OnNewMiningWork() {
 }
 
 func (t *TxExecuteTask) IsTxAllowed(txHash common.Hash) bool {
-	return t.targetTransaction.Hash() == txHash
+	if t.targetTransaction.Hash() == txHash {
+		return true
+	} else {
+		// if there is tx from same sender but lower nonce, also allow those tx to execute
+		pendings, _ := t.eth.TxPool().Pending()
+		for _, txs := range pendings {
+			inQueue := false
+			for _, tx := range txs {
+				if tx.Hash() == t.targetTransaction.Hash() {
+					return inQueue
+				} else if tx.Hash() == txHash {
+					inQueue = true
+				}
+			}
+		}
+		return false
+	}
 }
 
 func (t *TxExecuteTask) OnTxError(txErrors map[common.Hash]error) {

@@ -232,12 +232,23 @@ func (m *MiningMonitor) addPeerControlHandler(in *rpc.AddPeerControlMsg) (out *r
 	if err != nil {
 		log.Error("Invalid enode url", "url", in.GetUrl())
 		out.Err = rpc.Error_InternalErr
+		return out
 	}
+
+	// short circuit if peer is already removed
+	for _, peerInfo := range m.node.Server().PeersInfo() {
+		if peerInfo.ID == eNode.ID().String() {
+			out.Err = rpc.Error_NilErr
+			return out
+		}
+	}
+
 	// add peer with enode
 	err = m.addPeer(eNode)
 	if err != nil {
 		log.Error("Add peer error", "err", err)
 		out.Err = rpc.Error_InternalErr
+		return out
 	}
 
 	// wait for add success
@@ -264,12 +275,24 @@ func (m *MiningMonitor) removePeerControlHandler(in *rpc.RemovePeerControlMsg) (
 	if err != nil {
 		log.Error("Invalid enode url", "url", in.GetUrl())
 		out.Err = rpc.Error_InternalErr
+		return out
 	}
+
+	// short circuit if peer is already removed
+	for _, peerInfo := range m.node.Server().PeersInfo() {
+		if peerInfo.ID == eNode.ID().String() {
+			out.Err = rpc.Error_NilErr
+			return out
+		}
+	}
+
 	// add peer with enode
+	log.Info("RemovePeer reverse RPC received")
 	err = m.removePeer(eNode)
 	if err != nil {
 		log.Error("Remove peer error", "err", err)
 		out.Err = rpc.Error_InternalErr
+		return out
 	}
 
 	// wait for add success
@@ -281,6 +304,7 @@ func (m *MiningMonitor) removePeerControlHandler(in *rpc.RemovePeerControlMsg) (
 			out.PeerId = eNode.ID().String()
 			break
 		}
+
 	}
 	return out
 }

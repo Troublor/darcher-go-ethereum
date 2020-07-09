@@ -7,7 +7,8 @@ import (
 const EventCacheSize = 10
 
 const ConfirmationsCount uint64 = 1
-const ClusterTaskTimeout = 3 * time.Second
+const ClusterTaskTimeout = 10 * time.Second
+const ReverseRPCRetryTime = 3 * time.Second
 
 type LifecycleState string
 

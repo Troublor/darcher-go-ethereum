@@ -62,13 +62,14 @@ func (m *EthMonitor) newTxLoop() {
 	// listen for transactions
 	for {
 		ev := <-txCh
-		if _, ok := m.traverserMap[ev.Hash]; ok {
-			// this scenario happens when reorg
-			continue
-		}
 
 		if ev.GetRole() == rpc.Role_TALKER {
 			log.Warn("Receive tx from talker, ignored", "tx", common.PrettifyHash(ev.GetHash()))
+			continue
+		}
+
+		if _, ok := m.traverserMap[ev.Hash]; ok {
+			// this scenario happens when reorg
 			continue
 		}
 

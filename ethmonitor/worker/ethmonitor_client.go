@@ -28,26 +28,36 @@ type EthMonitorClient struct {
 	notifyNewTxStreamMutex        sync.RWMutex
 	notifyNewTxStream             rpc.BlockchainStatusService_NotifyNewTxClient
 	// reverse RPCs
-	getHeadControl rpc.BlockchainStatusService_GetHeadControlClient
+	getHeadControl      rpc.BlockchainStatusService_GetHeadControlClient
+	getHeadControlMutex sync.Mutex
 
 	/* p2p network service */
 	p2pNetworkService rpc.P2PNetworkServiceClient
 	// simple rpc
 	notifyNodeStartMutex sync.RWMutex
 	// reverse RPCs
-	addPeerControl    rpc.P2PNetworkService_AddPeerControlClient
-	removePeerControl rpc.P2PNetworkService_RemovePeerControlClient
+	addPeerControl         rpc.P2PNetworkService_AddPeerControlClient
+	addPeerControlMutex    sync.Mutex
+	removePeerControl      rpc.P2PNetworkService_RemovePeerControlClient
+	removePeerControlMutex sync.Mutex
 
 	/* mining service */
 	miningService rpc.MiningServiceClient
 	// reverse RPCs
-	scheduleTxControl          rpc.MiningService_ScheduleTxControlClient
-	mineBlocksControl          rpc.MiningService_MineBlocksControlClient
-	mineBlocksExceptTxControl  rpc.MiningService_MineBlocksExceptTxControlClient
-	mineBlocksWithoutTxControl rpc.MiningService_MineBlocksWithoutTxControlClient
-	mineTdControl              rpc.MiningService_MineTdControlClient
-	mineTxControl              rpc.MiningService_MineTxControlClient
-	checkTxInPoolControl       rpc.MiningService_CheckTxInPoolControlClient
+	scheduleTxControl               rpc.MiningService_ScheduleTxControlClient
+	scheduleTxControlMutex          sync.Mutex
+	mineBlocksControl               rpc.MiningService_MineBlocksControlClient
+	mineBlocksControlMutex          sync.Mutex
+	mineBlocksExceptTxControl       rpc.MiningService_MineBlocksExceptTxControlClient
+	mineBlocksExceptTxControlMutex  sync.Mutex
+	mineBlocksWithoutTxControl      rpc.MiningService_MineBlocksWithoutTxControlClient
+	mineBlocksWithoutTxControlMutex sync.Mutex
+	mineTdControl                   rpc.MiningService_MineTdControlClient
+	mineTdControlMutex              sync.Mutex
+	mineTxControl                   rpc.MiningService_MineTxControlClient
+	mineTxControlMutex              sync.Mutex
+	checkTxInPoolControl            rpc.MiningService_CheckTxInPoolControlClient
+	checkTxInPoolControlMutex       sync.Mutex
 }
 
 func NewClient(role rpc.Role, eth Ethereum, ctx context.Context, masterAddr string) *EthMonitorClient {
@@ -269,7 +279,9 @@ func (c *EthMonitorClient) ServeAddPeerControl(handler func(in *rpc.AddPeerContr
 		for {
 			select {
 			case <-c.ctx.Done():
+				c.addPeerControlMutex.Lock()
 				_ = c.addPeerControl.CloseSend()
+				c.addPeerControlMutex.Unlock()
 				return
 			default:
 			}
@@ -277,7 +289,9 @@ func (c *EthMonitorClient) ServeAddPeerControl(handler func(in *rpc.AddPeerContr
 			for err == io.EOF {
 				// reverse rpc stream closed, try to reconnect
 				log.Warn("AddPeer reverse rpc closed, retrying")
+				c.addPeerControlMutex.Lock()
 				c.addPeerControl, err = c.p2pNetworkService.AddPeerControl(c.ctx)
+				c.addPeerControlMutex.Unlock()
 				if err != nil {
 					log.Error("AddPeer reverse rpc reconnect error", "err", err)
 					return
@@ -288,12 +302,16 @@ func (c *EthMonitorClient) ServeAddPeerControl(handler func(in *rpc.AddPeerContr
 				log.Error("AddPeer reverse rpc receive data error", "err", err)
 				return
 			}
-			out := handler(in)
-			err = c.addPeerControl.Send(out)
-			if err != nil {
-				log.Error("AddPeer reverse rpc failed to reply", "err", err)
-				return
-			}
+			go func() {
+				out := handler(in)
+				c.addPeerControlMutex.Lock()
+				err = c.addPeerControl.Send(out)
+				c.addPeerControlMutex.Unlock()
+				if err != nil {
+					log.Error("AddPeer reverse rpc failed to reply", "err", err)
+					return
+				}
+			}()
 		}
 	}()
 	return nil
@@ -321,7 +339,9 @@ func (c *EthMonitorClient) ServeRemovePeerControl(handler func(in *rpc.RemovePee
 		for {
 			select {
 			case <-c.ctx.Done():
+				c.removePeerControlMutex.Lock()
 				_ = c.removePeerControl.CloseSend()
+				c.removePeerControlMutex.Unlock()
 				return
 			default:
 			}
@@ -329,7 +349,9 @@ func (c *EthMonitorClient) ServeRemovePeerControl(handler func(in *rpc.RemovePee
 			for err == io.EOF {
 				// reverse rpc stream closed, try to reconnect
 				log.Warn("RemovePeer reverse rpc closed, retrying")
+				c.removePeerControlMutex.Lock()
 				c.removePeerControl, err = c.p2pNetworkService.RemovePeerControl(c.ctx)
+				c.removePeerControlMutex.Unlock()
 				if err != nil {
 					log.Error("RemovePeer reverse rpc reconnect error", "err", err)
 					return
@@ -340,12 +362,16 @@ func (c *EthMonitorClient) ServeRemovePeerControl(handler func(in *rpc.RemovePee
 				log.Error("RemovePeer reverse rpc receive data error", "err", err)
 				return
 			}
-			out := handler(in)
-			err = c.removePeerControl.Send(out)
-			if err != nil {
-				log.Error("RemovePeer reverse rpc failed to reply", "err", err)
-				return
-			}
+			go func() {
+				out := handler(in)
+				c.removePeerControlMutex.Lock()
+				err = c.removePeerControl.Send(out)
+				c.removePeerControlMutex.Unlock()
+				if err != nil {
+					log.Error("RemovePeer reverse rpc failed to reply", "err", err)
+					return
+				}
+			}()
 		}
 	}()
 	return nil
@@ -369,7 +395,9 @@ func (c *EthMonitorClient) ServeGetHeadControl(handler func(in *rpc.GetChainHead
 		for {
 			select {
 			case <-c.ctx.Done():
+				c.getHeadControlMutex.Lock()
 				_ = c.getHeadControl.CloseSend()
+				c.getHeadControlMutex.Unlock()
 				return
 			default:
 			}
@@ -377,7 +405,9 @@ func (c *EthMonitorClient) ServeGetHeadControl(handler func(in *rpc.GetChainHead
 			for err == io.EOF {
 				// reverse rpc stream closed, try to reconnect
 				log.Warn("GetHead reverse rpc closed, retrying")
+				c.getHeadControlMutex.Lock()
 				c.getHeadControl, err = c.blockchainStatusService.GetHeadControl(c.ctx)
+				c.getHeadControlMutex.Unlock()
 				if err != nil {
 					log.Error("GetHead reverse rpc reconnect error", "err", err)
 					return
@@ -388,12 +418,16 @@ func (c *EthMonitorClient) ServeGetHeadControl(handler func(in *rpc.GetChainHead
 				log.Error("GetHead reverse rpc receive data error", "err", err)
 				return
 			}
-			out := handler(in)
-			err = c.getHeadControl.Send(out)
-			if err != nil {
-				log.Error("GetHead reverse rpc failed to reply", "err", err)
-				return
-			}
+			go func() {
+				out := handler(in)
+				c.getHeadControlMutex.Lock()
+				err = c.getHeadControl.Send(out)
+				c.getHeadControlMutex.Unlock()
+				if err != nil {
+					log.Error("GetHead reverse rpc failed to reply", "err", err)
+					return
+				}
+			}()
 		}
 	}()
 	return nil
@@ -417,7 +451,9 @@ func (c *EthMonitorClient) ServeScheduleTxControl(handler func(in *rpc.ScheduleT
 		for {
 			select {
 			case <-c.ctx.Done():
+				c.scheduleTxControlMutex.Lock()
 				_ = c.scheduleTxControl.CloseSend()
+				c.scheduleTxControlMutex.Unlock()
 				return
 			default:
 			}
@@ -425,7 +461,9 @@ func (c *EthMonitorClient) ServeScheduleTxControl(handler func(in *rpc.ScheduleT
 			for err == io.EOF {
 				// reverse rpc stream closed, try to reconnect
 				log.Warn("ScheduleTx reverse rpc closed, retrying")
+				c.scheduleTxControlMutex.Lock()
 				c.scheduleTxControl, err = c.miningService.ScheduleTxControl(c.ctx)
+				c.scheduleTxControlMutex.Unlock()
 				if err != nil {
 					log.Error("ScheduleTx reverse rpc reconnect error", "err", err)
 					return
@@ -436,12 +474,16 @@ func (c *EthMonitorClient) ServeScheduleTxControl(handler func(in *rpc.ScheduleT
 				log.Error("ScheduleTx reverse rpc receive data error", "err", err)
 				return
 			}
-			out := handler(in)
-			err = c.scheduleTxControl.Send(out)
-			if err != nil {
-				log.Error("ScheduleTx reverse rpc failed to reply", "err", err)
-				return
-			}
+			go func() {
+				out := handler(in)
+				c.scheduleTxControlMutex.Lock()
+				err = c.scheduleTxControl.Send(out)
+				c.scheduleTxControlMutex.Unlock()
+				if err != nil {
+					log.Error("ScheduleTx reverse rpc failed to reply", "err", err)
+					return
+				}
+			}()
 		}
 	}()
 	return nil
@@ -465,7 +507,9 @@ func (c *EthMonitorClient) ServeMineBlocksControl(handler func(in *rpc.MineBlock
 		for {
 			select {
 			case <-c.ctx.Done():
+				c.mineBlocksControlMutex.Lock()
 				_ = c.mineBlocksControl.CloseSend()
+				c.mineBlocksControlMutex.Unlock()
 				return
 			default:
 			}
@@ -473,7 +517,9 @@ func (c *EthMonitorClient) ServeMineBlocksControl(handler func(in *rpc.MineBlock
 			for err == io.EOF {
 				// reverse rpc stream closed, try to reconnect
 				log.Warn("MineBlocks reverse rpc closed, retrying")
+				c.mineBlocksControlMutex.Lock()
 				c.mineBlocksControl, err = c.miningService.MineBlocksControl(c.ctx)
+				c.mineBlocksControlMutex.Unlock()
 				if err != nil {
 					log.Error("MineBlocks reverse rpc reconnect error", "err", err)
 					return
@@ -484,12 +530,16 @@ func (c *EthMonitorClient) ServeMineBlocksControl(handler func(in *rpc.MineBlock
 				log.Error("MineBlocks reverse rpc receive data error", "err", err)
 				return
 			}
-			out := handler(in)
-			err = c.mineBlocksControl.Send(out)
-			if err != nil {
-				log.Error("MineBlocks reverse rpc failed to reply", "err", err)
-				return
-			}
+			go func() {
+				out := handler(in)
+				c.mineBlocksControlMutex.Lock()
+				err = c.mineBlocksControl.Send(out)
+				c.mineBlocksControlMutex.Unlock()
+				if err != nil {
+					log.Error("MineBlocks reverse rpc failed to reply", "err", err)
+					return
+				}
+			}()
 		}
 	}()
 	return nil
@@ -513,7 +563,9 @@ func (c *EthMonitorClient) ServeMineBlocksExceptTxControl(handler func(in *rpc.M
 		for {
 			select {
 			case <-c.ctx.Done():
+				c.mineBlocksExceptTxControlMutex.Lock()
 				_ = c.mineBlocksExceptTxControl.CloseSend()
+				c.mineBlocksExceptTxControlMutex.Unlock()
 				return
 			default:
 			}
@@ -521,7 +573,9 @@ func (c *EthMonitorClient) ServeMineBlocksExceptTxControl(handler func(in *rpc.M
 			for err == io.EOF {
 				// reverse rpc stream closed, try to reconnect
 				log.Warn("MineBlocksExceptTx reverse rpc closed, retrying")
+				c.mineBlocksExceptTxControlMutex.Lock()
 				c.mineBlocksExceptTxControl, err = c.miningService.MineBlocksExceptTxControl(c.ctx)
+				c.mineBlocksExceptTxControlMutex.Unlock()
 				if err != nil {
 					log.Error("MineBlocksExceptTx reverse rpc reconnect error", "err", err)
 					return
@@ -532,12 +586,16 @@ func (c *EthMonitorClient) ServeMineBlocksExceptTxControl(handler func(in *rpc.M
 				log.Error("MineBlocksExceptTx reverse rpc receive data error", "err", err)
 				return
 			}
-			out := handler(in)
-			err = c.mineBlocksExceptTxControl.Send(out)
-			if err != nil {
-				log.Error("MineBlocksExceptTx reverse rpc failed to reply", "err", err)
-				return
-			}
+			go func() {
+				out := handler(in)
+				c.mineBlocksExceptTxControlMutex.Lock()
+				err = c.mineBlocksExceptTxControl.Send(out)
+				c.mineBlocksExceptTxControlMutex.Unlock()
+				if err != nil {
+					log.Error("MineBlocksExceptTx reverse rpc failed to reply", "err", err)
+					return
+				}
+			}()
 		}
 	}()
 	return nil
@@ -561,7 +619,9 @@ func (c *EthMonitorClient) ServeMineBlocksWithoutTxControl(handler func(in *rpc.
 		for {
 			select {
 			case <-c.ctx.Done():
+				c.mineBlocksWithoutTxControlMutex.Lock()
 				_ = c.mineBlocksWithoutTxControl.CloseSend()
+				c.mineBlocksWithoutTxControlMutex.Unlock()
 				return
 			default:
 			}
@@ -569,7 +629,9 @@ func (c *EthMonitorClient) ServeMineBlocksWithoutTxControl(handler func(in *rpc.
 			for err == io.EOF {
 				// reverse rpc stream closed, try to reconnect
 				log.Warn("MineBlocksWithoutTx reverse rpc closed, retrying")
+				c.mineBlocksWithoutTxControlMutex.Lock()
 				c.mineBlocksWithoutTxControl, err = c.miningService.MineBlocksWithoutTxControl(c.ctx)
+				c.mineBlocksWithoutTxControlMutex.Unlock()
 				if err != nil {
 					log.Error("MineBlocksWithoutTx reverse rpc reconnect error", "err", err)
 					return
@@ -580,12 +642,16 @@ func (c *EthMonitorClient) ServeMineBlocksWithoutTxControl(handler func(in *rpc.
 				log.Error("MineBlocksWithoutTx reverse rpc receive data error", "err", err)
 				return
 			}
-			out := handler(in)
-			err = c.mineBlocksWithoutTxControl.Send(out)
-			if err != nil {
-				log.Error("MineBlocksWithoutTx reverse rpc failed to reply", "err", err)
-				return
-			}
+			go func() {
+				out := handler(in)
+				c.mineBlocksWithoutTxControlMutex.Lock()
+				err = c.mineBlocksWithoutTxControl.Send(out)
+				c.mineBlocksWithoutTxControlMutex.Unlock()
+				if err != nil {
+					log.Error("MineBlocksWithoutTx reverse rpc failed to reply", "err", err)
+					return
+				}
+			}()
 		}
 	}()
 	return nil
@@ -609,7 +675,9 @@ func (c *EthMonitorClient) ServeMineTdControl(handler func(in *rpc.MineTdControl
 		for {
 			select {
 			case <-c.ctx.Done():
+				c.mineTdControlMutex.Lock()
 				_ = c.mineTdControl.CloseSend()
+				c.mineTdControlMutex.Unlock()
 				return
 			default:
 			}
@@ -617,7 +685,9 @@ func (c *EthMonitorClient) ServeMineTdControl(handler func(in *rpc.MineTdControl
 			for err == io.EOF {
 				// reverse rpc stream closed, try to reconnect
 				log.Warn("MineTd reverse rpc closed, retrying")
+				c.mineTdControlMutex.Lock()
 				c.mineTdControl, err = c.miningService.MineTdControl(c.ctx)
+				c.mineTdControlMutex.Unlock()
 				if err != nil {
 					log.Error("MineTd reverse rpc reconnect error", "err", err)
 					return
@@ -628,12 +698,16 @@ func (c *EthMonitorClient) ServeMineTdControl(handler func(in *rpc.MineTdControl
 				log.Error("MineTd reverse rpc receive data error", "err", err)
 				return
 			}
-			out := handler(in)
-			err = c.mineTdControl.Send(out)
-			if err != nil {
-				log.Error("MineTd reverse rpc failed to reply", "err", err)
-				return
-			}
+			go func() {
+				out := handler(in)
+				c.mineTdControlMutex.Lock()
+				err = c.mineTdControl.Send(out)
+				c.mineTdControlMutex.Unlock()
+				if err != nil {
+					log.Error("MineTd reverse rpc failed to reply", "err", err)
+					return
+				}
+			}()
 		}
 	}()
 	return nil
@@ -657,7 +731,9 @@ func (c *EthMonitorClient) ServeMineTxControl(handler func(in *rpc.MineTxControl
 		for {
 			select {
 			case <-c.ctx.Done():
+				c.mineTxControlMutex.Lock()
 				_ = c.mineTxControl.CloseSend()
+				c.mineTxControlMutex.Unlock()
 				return
 			default:
 			}
@@ -665,7 +741,9 @@ func (c *EthMonitorClient) ServeMineTxControl(handler func(in *rpc.MineTxControl
 			for err == io.EOF {
 				// reverse rpc stream closed, try to reconnect
 				log.Warn("MineTx reverse rpc closed, retrying")
+				c.mineTxControlMutex.Lock()
 				c.mineTxControl, err = c.miningService.MineTxControl(c.ctx)
+				c.mineTxControlMutex.Unlock()
 				if err != nil {
 					log.Error("MineTx reverse rpc reconnect error", "err", err)
 					return
@@ -676,12 +754,16 @@ func (c *EthMonitorClient) ServeMineTxControl(handler func(in *rpc.MineTxControl
 				log.Error("MineTx reverse rpc receive data error", "err", err)
 				return
 			}
-			out := handler(in)
-			err = c.mineTxControl.Send(out)
-			if err != nil {
-				log.Error("MineTx reverse rpc failed to reply", "err", err)
-				return
-			}
+			go func() {
+				out := handler(in)
+				c.mineTxControlMutex.Lock()
+				err = c.mineTxControl.Send(out)
+				c.mineTxControlMutex.Unlock()
+				if err != nil {
+					log.Error("MineTx reverse rpc failed to reply", "err", err)
+					return
+				}
+			}()
 		}
 	}()
 	return nil
@@ -705,7 +787,9 @@ func (c *EthMonitorClient) ServeCheckTxInPoolControl(handler func(in *rpc.CheckT
 		for {
 			select {
 			case <-c.ctx.Done():
+				c.checkTxInPoolControlMutex.Lock()
 				_ = c.checkTxInPoolControl.CloseSend()
+				c.checkTxInPoolControlMutex.Unlock()
 				return
 			default:
 			}
@@ -713,7 +797,9 @@ func (c *EthMonitorClient) ServeCheckTxInPoolControl(handler func(in *rpc.CheckT
 			for err == io.EOF {
 				// reverse rpc stream closed, try to reconnect
 				log.Warn("CheckTxInPool reverse rpc closed, retrying")
+				c.checkTxInPoolControlMutex.Lock()
 				c.checkTxInPoolControl, err = c.miningService.CheckTxInPoolControl(c.ctx)
+				c.checkTxInPoolControlMutex.Unlock()
 				if err != nil {
 					log.Error("CheckTxInPool reverse rpc reconnect error", "err", err)
 					return
@@ -724,12 +810,16 @@ func (c *EthMonitorClient) ServeCheckTxInPoolControl(handler func(in *rpc.CheckT
 				log.Error("CheckTxInPool reverse rpc receive data error", "err", err)
 				return
 			}
-			out := handler(in)
-			err = c.checkTxInPoolControl.Send(out)
-			if err != nil {
-				log.Error("CheckTxInPool reverse rpc failed to reply", "err", err)
-				return
-			}
+			go func() {
+				out := handler(in)
+				c.checkTxInPoolControlMutex.Lock()
+				err = c.checkTxInPoolControl.Send(out)
+				c.checkTxInPoolControlMutex.Unlock()
+				if err != nil {
+					log.Error("CheckTxInPool reverse rpc failed to reply", "err", err)
+					return
+				}
+			}()
 		}
 	}()
 	return nil

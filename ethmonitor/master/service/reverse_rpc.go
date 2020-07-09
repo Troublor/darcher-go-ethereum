@@ -2,12 +2,14 @@ package service
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/ethmonitor/master/common"
 	"github.com/ethereum/go-ethereum/ethmonitor/rpc"
 	"github.com/ethereum/go-ethereum/log"
 	"google.golang.org/grpc"
 	"io"
 	"reflect"
 	"sync"
+	"time"
 )
 
 type Identifiable interface {
@@ -46,7 +48,7 @@ func NewReverseRPC(name string, replyType reflect.Type, rpcStream grpc.ServerStr
 }
 
 /**
-Perform reverse rpc call (call from legacyServer to client)
+Perform reverse rpc call (call from server to client)
 */
 func (rrpc *ReverseRPC) Call(arg Identifiable) (reply Identifiable, err error) {
 	replyCh := make(chan Identifiable, 1)
@@ -60,14 +62,20 @@ func (rrpc *ReverseRPC) Call(arg Identifiable) (reply Identifiable, err error) {
 	pendingCalls.(*sync.Map).Store(arg.GetId(), replyCh)
 
 	// send reverser RPC to client
+	timeout := time.After(common.ReverseRPCRetryTime)
 	rrpc.mutex.Lock()
 	err = rrpc.rpcStream.SendMsg(arg)
 	rrpc.mutex.Unlock()
 	if err != nil {
 		return nil, err
 	}
-	reply = <-replyCh
-	return reply, nil
+	select {
+	case <-timeout:
+		log.Warn("Reverse rpc timeout, retrying")
+		return rrpc.Call(arg)
+	case reply = <-replyCh:
+		return reply, nil
+	}
 }
 
 /**

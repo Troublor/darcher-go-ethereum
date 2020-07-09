@@ -220,19 +220,19 @@ wait:
 			return TimeoutErr
 		case ev := <-doerUpdateCh:
 			log.Debug("doer update", "doerNum", ev.GetNumber(), "doerTd", ev.GetTd(), "talkerNum", c.GetTalkerCurrentHead().GetNumber(), "talkerTd", c.GetTalkerCurrentHead().GetTd())
-			if ev.GetTd() == c.GetTalkerCurrentHead().GetTd() {
+			if c.GetDoerCurrentHead().GetTd() == c.GetTalkerCurrentHead().GetTd() {
 				current = ev
 				break wait
 			}
 		case ev := <-talkerUpdateCh:
 			log.Debug("talker update", "talkerNum", ev.GetNumber(), "talkerTd", ev.GetTd(), "doerNum", c.GetDoerCurrentHead().GetNumber(), "doerTd", c.GetDoerCurrentHead().GetTd())
-			if ev.Td == c.GetDoerCurrentHead().GetTd() {
+			if c.GetDoerCurrentHead().Td == c.GetDoerCurrentHead().GetTd() {
 				current = ev
 				break wait
 			}
 		}
 	}
-	log.Info("Peers synchronized", "number", current.GetNumber(), "td", current.GetTd())
+	log.Info("Peers synchronized", "number", c.GetDoerCurrentHead().GetNumber(), "td", c.GetDoerCurrentHead().GetTd())
 	return nil
 }
 
@@ -311,7 +311,7 @@ func (c *Cluster) synchronizeAsync() (doneCh chan *rpc.ChainHead, errCh chan err
 		select {
 		case msg := <-rdCh:
 			if msg.GetErr() != rpc.Error_NilErr {
-				log.Error("AddPeer reverse RPC error", "err", msg.GetErr().String())
+				log.Error("RemovePeer reverse RPC error", "err", msg.GetErr().String())
 				errCh <- RPCErr
 				return
 			}
