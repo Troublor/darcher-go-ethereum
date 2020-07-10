@@ -20,6 +20,8 @@ type MiningMonitor struct {
 	role           rpc.Role
 	client         *EthMonitorClient
 	ethMonitorPort int
+	ctx            context.Context
+	cancel         context.CancelFunc
 
 	// a feed for every new Task
 	newTaskFeed event.Feed
@@ -28,7 +30,6 @@ type MiningMonitor struct {
 	eth   Ethereum
 	node  *node.Node
 	miner Stoppable
-	pm    ProtocolManager
 
 	// current mining task
 	currentTask Task
@@ -46,10 +47,13 @@ func NewMonitor(role rpc.Role, monitorPort int) *MiningMonitor {
 	} else {
 		scheduler = newTxScheduler()
 	}
+	ctx, cancel := context.WithCancel(context.Background())
 	m := &MiningMonitor{
 		role:           role,
 		ethMonitorPort: monitorPort,
 		txScheduler:    scheduler,
+		ctx:            ctx,
+		cancel:         cancel,
 	}
 	return m
 }
@@ -84,12 +88,11 @@ func (m *MiningMonitor) StopMiningTask() {
 /* Public Methods to use ethmonitor end */
 
 /* methods called when initializing geth start */
-func (m *MiningMonitor) StartMonitoring() {
+func (m *MiningMonitor) Start() {
 	if m.ethMonitorPort == 0 {
 		return
 	}
-	ctx := context.Background()
-	m.client = NewClient(m.role, m.eth, ctx, fmt.Sprintf("localhost:%d", m.ethMonitorPort))
+	m.client = NewClient(m.role, m.eth, m.ctx, fmt.Sprintf("localhost:%d", m.ethMonitorPort))
 	log.Info("ethmonitor client started")
 
 	// start reverse rpcs
@@ -102,6 +105,11 @@ func (m *MiningMonitor) StartMonitoring() {
 	go m.listenChainHeadLoop()
 	go m.listenNewTxsLoop()
 	go m.listenChainSideLoop()
+}
+
+func (m *MiningMonitor) Stop() {
+	log.Info("Stopping ethmonitor")
+	m.cancel()
 }
 
 func (m *MiningMonitor) NotifyNodeStart(node *node.Node) {
@@ -123,10 +131,6 @@ func (m *MiningMonitor) SetNode(node *node.Node) {
 
 func (m *MiningMonitor) SetMiner(miner Stoppable) {
 	m.miner = miner
-}
-
-func (m *MiningMonitor) SetProtocolManager(pm ProtocolManager) {
-	m.pm = pm
 }
 
 /* methods called when initializing geth ends */
@@ -320,7 +324,7 @@ func (m *MiningMonitor) mineBlocksControlHandler(in *rpc.MineBlocksControlMsg) (
 	out = in
 
 	// assign mining task
-	task := NewBudgetTask(m.eth, int64(in.GetCount()))
+	task := NewBudgetTask(m.ctx, m.eth, int64(in.GetCount()))
 	err := m.AssignMiningTask(task)
 	if err != nil {
 		log.Error("Assign mining task error", "task", task.String(), "err", err)
@@ -339,7 +343,7 @@ func (m *MiningMonitor) mineBlocksExceptTxControlHandler(in *rpc.MineBlocksExcep
 	out = in
 
 	// assign mining task
-	task := NewBudgetExceptTxTask(m.eth, int64(in.GetCount()), in.GetTxHash())
+	task := NewBudgetExceptTxTask(m.ctx, m.eth, int64(in.GetCount()), in.GetTxHash())
 	err := m.AssignMiningTask(task)
 	if err != nil {
 		log.Error("Assign mining task error", "task", task.String(), "err", err)
@@ -358,7 +362,7 @@ func (m *MiningMonitor) mineBlocksWithoutTxControlHandler(in *rpc.MineBlocksWith
 	out = in
 
 	// assign mining task
-	task := NewBudgetWithoutTxTask(m.eth, int64(in.GetCount()))
+	task := NewBudgetWithoutTxTask(m.ctx, m.eth, int64(in.GetCount()))
 	err := m.AssignMiningTask(task)
 	if err != nil {
 		log.Error("Assign mining task error", "task", task.String(), "err", err)
@@ -377,7 +381,7 @@ func (m *MiningMonitor) mineTdControlHandler(in *rpc.MineTdControlMsg) (out *rpc
 	out = in
 
 	// assign mining task
-	task := NewTdTask(m.eth, big.NewInt(int64(in.GetTd())))
+	task := NewTdTask(m.ctx, m.eth, big.NewInt(int64(in.GetTd())))
 	err := m.AssignMiningTask(task)
 	if err != nil {
 		log.Error("Assign mining task error", "task", task.String(), "err", err)
@@ -396,7 +400,7 @@ func (m *MiningMonitor) mineTxControlHandler(in *rpc.MineTxControlMsg) (out *rpc
 	out = in
 
 	// assign mining task
-	task := NewTxExecuteTask(m.eth, m.eth.TxPool().Get(common.HexToHash(in.GetHash())))
+	task := NewTxExecuteTask(m.ctx, m.eth, m.eth.TxPool().Get(common.HexToHash(in.GetHash())))
 	err := m.AssignMiningTask(task)
 	if err != nil {
 		log.Error("Assign mining task error", "task", task.String(), "err", err)
@@ -483,6 +487,8 @@ func (m *MiningMonitor) listenNewTxsLoop() {
 
 	for {
 		select {
+		case <-m.ctx.Done():
+			return
 		case <-txsSub.Err():
 			return
 		case ev := <-txsCh:
@@ -511,6 +517,8 @@ func (m *MiningMonitor) listenChainHeadLoop() {
 
 	for {
 		select {
+		case <-m.ctx.Done():
+			return
 		case <-chainHeadSub.Err():
 			return
 		case ev := <-chainHeadCh:
@@ -535,6 +543,8 @@ func (m *MiningMonitor) listenChainSideLoop() {
 
 	for {
 		select {
+		case <-m.ctx.Done():
+			return
 		case <-chainSideSub.Err():
 			return
 		case ev := <-chainSideCh:

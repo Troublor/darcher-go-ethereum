@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"context"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
@@ -13,21 +14,29 @@ import (
 
 type baseTask struct {
 	targetAchievedCh chan interface{}
+	ctx              context.Context
 }
 
-func newBaseTask(eth Ethereum, targetAchieved func(block *types.Block) (achieved bool)) baseTask {
-	task := baseTask{targetAchievedCh: make(chan interface{})}
+func newBaseTask(ctx context.Context, eth Ethereum, targetAchieved func(block *types.Block) (achieved bool)) baseTask {
+	task := baseTask{targetAchievedCh: make(chan interface{}), ctx: ctx}
 	go func() {
 		ch := make(chan core.ChainHeadEvent, 10)
 		sub := eth.BlockChain().SubscribeChainHeadEvent(ch)
 		defer sub.Unsubscribe()
 		for {
-			ev := <-ch
-			if targetAchieved(ev.Block) {
+			select {
+			case <-task.ctx.Done():
 				// target achieved
 				close(task.targetAchievedCh)
-				break
+				return
+			case ev := <-ch:
+				if targetAchieved(ev.Block) {
+					// target achieved
+					close(task.targetAchievedCh)
+					return
+				}
 			}
+
 		}
 	}()
 	return task
@@ -48,10 +57,10 @@ type BudgetTask struct {
 	targetBlockNumber *big.Int
 }
 
-func NewBudgetTask(eth Ethereum, budget int64) *BudgetTask {
+func NewBudgetTask(ctx context.Context, eth Ethereum, budget int64) *BudgetTask {
 	targetNumber := big.NewInt(0).Add(eth.BlockChain().CurrentBlock().Number(), big.NewInt(budget))
 	task := &BudgetTask{
-		baseTask: newBaseTask(eth, func(block *types.Block) bool {
+		baseTask: newBaseTask(ctx, eth, func(block *types.Block) bool {
 			return block.Number().Cmp(targetNumber) >= 0
 		}),
 		eth:               eth,
@@ -85,10 +94,10 @@ type BudgetWithoutTxTask struct {
 	targetBlockNumber *big.Int
 }
 
-func NewBudgetWithoutTxTask(eth Ethereum, budget int64) *BudgetWithoutTxTask {
+func NewBudgetWithoutTxTask(ctx context.Context, eth Ethereum, budget int64) *BudgetWithoutTxTask {
 	targetNumber := big.NewInt(0).Add(eth.BlockChain().CurrentBlock().Number(), big.NewInt(budget))
 	return &BudgetWithoutTxTask{
-		baseTask: newBaseTask(eth, func(block *types.Block) bool {
+		baseTask: newBaseTask(ctx, eth, func(block *types.Block) bool {
 			return block.Number().Cmp(targetNumber) >= 0
 		}),
 		eth:               eth,
@@ -121,10 +130,10 @@ type BudgetExceptTxTask struct {
 	txHash            string
 }
 
-func NewBudgetExceptTxTask(eth Ethereum, budget int64, txHash string) *BudgetExceptTxTask {
+func NewBudgetExceptTxTask(ctx context.Context, eth Ethereum, budget int64, txHash string) *BudgetExceptTxTask {
 	targetNumber := big.NewInt(0).Add(eth.BlockChain().CurrentBlock().Number(), big.NewInt(budget))
 	return &BudgetExceptTxTask{
-		baseTask: newBaseTask(eth, func(block *types.Block) bool {
+		baseTask: newBaseTask(ctx, eth, func(block *types.Block) bool {
 			return block.Number().Cmp(targetNumber) >= 0
 		}),
 		eth:               eth,
@@ -161,10 +170,10 @@ type IntervalTask struct {
 	currentBlockNumber *big.Int
 }
 
-func NewIntervalTask(eth Ethereum, interval uint) *IntervalTask {
+func NewIntervalTask(ctx context.Context, eth Ethereum, interval uint) *IntervalTask {
 	stopCh := make(chan interface{}, 1)
 	return &IntervalTask{
-		baseTask: newBaseTask(eth, func(block *types.Block) bool {
+		baseTask: newBaseTask(ctx, eth, func(block *types.Block) bool {
 			// daemon task achieves target only when it is explicitly stopped
 			select {
 			case <-stopCh:
@@ -224,10 +233,10 @@ type TxMonitorTask struct {
 	stopCh chan interface{}
 }
 
-func NewTxMonitorTask(eth Ethereum, txPool *core.TxPool) *TxMonitorTask {
+func NewTxMonitorTask(ctx context.Context, eth Ethereum, txPool *core.TxPool) *TxMonitorTask {
 	stopCh := make(chan interface{})
 	task := &TxMonitorTask{
-		baseTask: newBaseTask(eth, func(block *types.Block) bool {
+		baseTask: newBaseTask(ctx, eth, func(block *types.Block) bool {
 			// daemon task achieves target only when it is explicitly stopped
 			select {
 			case <-stopCh:
@@ -309,13 +318,13 @@ type TxExecuteTask struct {
 	err               error
 }
 
-func NewTxExecuteTask(eth Ethereum, targetTransaction *types.Transaction) *TxExecuteTask {
+func NewTxExecuteTask(ctx context.Context, eth Ethereum, targetTransaction *types.Transaction) *TxExecuteTask {
 	task := &TxExecuteTask{
 		eth:               eth,
 		targetTransaction: targetTransaction,
 		err:               nil,
 	}
-	task.baseTask = newBaseTask(eth, func(block *types.Block) bool {
+	task.baseTask = newBaseTask(ctx, eth, func(block *types.Block) bool {
 		if task.err != nil {
 			return true
 		}
@@ -372,9 +381,9 @@ type TdTask struct {
 	targetTd *big.Int
 }
 
-func NewTdTask(eth Ethereum, targetTd *big.Int) *TdTask {
+func NewTdTask(ctx context.Context, eth Ethereum, targetTd *big.Int) *TdTask {
 	return &TdTask{
-		baseTask: newBaseTask(eth, func(block *types.Block) bool {
+		baseTask: newBaseTask(ctx, eth, func(block *types.Block) bool {
 			return eth.BlockChain().GetTdByHash(block.Hash()).Cmp(targetTd) > 0
 		}),
 		eth:      eth,

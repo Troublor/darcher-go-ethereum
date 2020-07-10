@@ -20,14 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
-	"net/http"
-	"os"
-	"path/filepath"
-	"reflect"
-	"strings"
-	"sync"
-
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/ethdb"
@@ -37,6 +29,14 @@ import (
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/prometheus/tsdb/fileutil"
+	"net"
+	"net/http"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"sync"
+	"time"
 )
 
 // Node is a container on which services can be registered.
@@ -405,8 +405,17 @@ func (n *Node) startHTTP(endpoint string, apis []rpc.API, modules []string, cors
 // stopHTTP terminates the HTTP RPC endpoint.
 func (n *Node) stopHTTP() {
 	if n.httpServer != nil {
+		// TODO troublor modify starts: shut down http server with timeout
+		ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
+		err := n.httpServer.Shutdown(ctx)
+		if err != nil {
+			log.Warn("httpServer shutdown with error", "err", err)
+		}
+		// troublor modify ends
+		// TODO troublor modify starts: comment out
 		// Don't bother imposing a timeout here.
-		n.httpServer.Shutdown(context.Background())
+		//n.httpServer.Shutdown(context.Background())
+		// troublor modify ends
 		n.log.Info("HTTP endpoint closed", "url", fmt.Sprintf("http://%v/", n.httpListenerAddr))
 	}
 	if n.httpHandler != nil {

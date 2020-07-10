@@ -343,7 +343,6 @@ func NewWithMonitor(ctx *node.ServiceContext, config *Config, monitor *ethmonito
 		return nil, err
 	}
 	monitor.SetEth(eth)
-	monitor.SetProtocolManager(eth.protocolManager)
 	// feed tx scheduler to ethapi.EthereumPublicAPI
 	ethapi.SetTxScheduler(monitor.GetTxScheduler())
 	eth.miner = miner.NewMinerWithMonitor(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock, monitor)
@@ -695,6 +694,11 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 // Ethereum protocol.
 func (s *Ethereum) Stop() error {
 	// Stop all the peer-related stuff first.
+	// TODO troublor modify starts: stop ethmonitor
+	if s.miner.Monitor != nil {
+		s.miner.Monitor.Stop()
+	}
+	// troublor modify ends
 	s.protocolManager.Stop()
 	if s.lesServer != nil {
 		s.lesServer.Stop()

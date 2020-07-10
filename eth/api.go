@@ -108,7 +108,7 @@ func (api *PrivateMinerAPI) MineBlocks(budget uint64) (string, error) {
 	if api.e.miner.Monitor == nil {
 		return "", fmt.Errorf("miner.mineBlocks() is disabled when monitor is disabled")
 	}
-	task := ethmonitor.NewBudgetTask(api.e, int64(budget))
+	task := ethmonitor.NewBudgetTask(context.Background(), api.e, int64(budget))
 	err := api.e.miner.Monitor.AssignMiningTask(task)
 	return fmt.Sprintf("mine %d blocks", budget), err
 }
@@ -120,7 +120,7 @@ func (api *PrivateMinerAPI) MineBlockInterval(interval uint) (string, error) {
 	if interval <= 0 {
 		return "", fmt.Errorf("invalid value of time interval %d", interval)
 	}
-	task := ethmonitor.NewIntervalTask(api.e, interval)
+	task := ethmonitor.NewIntervalTask(context.Background(), api.e, interval)
 	err := api.e.miner.Monitor.AssignMiningTask(task)
 	return fmt.Sprintf("mine block with time interval %dms", interval), err
 }
@@ -129,7 +129,7 @@ func (api *PrivateMinerAPI) MineWhenTx() (string, error) {
 	if api.e.miner.Monitor == nil {
 		return "", fmt.Errorf("miner.mineBlocks() is disabled when monitor is disabled")
 	}
-	task := ethmonitor.NewTxMonitorTask(api.e, api.e.txPool)
+	task := ethmonitor.NewTxMonitorTask(context.Background(), api.e, api.e.txPool)
 	err := api.e.miner.Monitor.AssignMiningTask(task)
 	return fmt.Sprintf("mine block when there are txs in txPool"), err
 }
@@ -143,7 +143,7 @@ func (api *PrivateMinerAPI) MineTx(txHash common.Hash) (string, error) {
 		// the tx is not in the txPool
 		return "", fmt.Errorf("tx does not exist: %s", txHash.Hex())
 	}
-	task := ethmonitor.NewTxExecuteTask(api.e, tx)
+	task := ethmonitor.NewTxExecuteTask(context.Background(), api.e, tx)
 	err := api.e.miner.Monitor.AssignMiningTask(task)
 	return fmt.Sprintf("mine transaction %s", txHash.Hex()), err
 }
@@ -152,7 +152,7 @@ func (api *PrivateMinerAPI) MineBlocksWithoutTx(budget uint64) (string, error) {
 	if api.e.miner.Monitor == nil {
 		return "", fmt.Errorf("miner.mineBlocksWithoutTx() is disabled when monitor is disabled")
 	}
-	task := ethmonitor.NewBudgetWithoutTxTask(api.e, int64(budget))
+	task := ethmonitor.NewBudgetWithoutTxTask(context.Background(), api.e, int64(budget))
 	err := api.e.miner.Monitor.AssignMiningTask(task)
 	return fmt.Sprintf("mine %d blocks without transactions", budget), err
 }
@@ -161,7 +161,7 @@ func (api *PrivateMinerAPI) MineBlocksExceptTx(budget uint64, txHash string) (st
 	if api.e.miner.Monitor == nil {
 		return "", fmt.Errorf("miner.mineBlocksExceptTx() is disabled when monitor is disabled")
 	}
-	task := ethmonitor.NewBudgetExceptTxTask(api.e, int64(budget), txHash)
+	task := ethmonitor.NewBudgetExceptTxTask(context.Background(), api.e, int64(budget), txHash)
 	err := api.e.miner.Monitor.AssignMiningTask(task)
 	return fmt.Sprintf("mine %d blocks except transaction %s", budget, txHash), err
 }
