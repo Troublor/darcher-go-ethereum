@@ -298,6 +298,10 @@ func (c *EthMonitorClient) ServeAddPeerControl(handler func(in *rpc.AddPeerContr
 				}
 				in, err = c.addPeerControl.Recv()
 			}
+			if err == context.Canceled {
+				log.Info("RemovePeer reverse rpc closed", "err", err)
+				return
+			}
 			if err != nil {
 				log.Error("AddPeer reverse rpc receive data error", "err", err)
 				return
@@ -358,6 +362,10 @@ func (c *EthMonitorClient) ServeRemovePeerControl(handler func(in *rpc.RemovePee
 				}
 				in, err = c.removePeerControl.Recv()
 			}
+			if err == context.Canceled {
+				log.Info("RemovePeer reverse rpc closed", "err", err)
+				return
+			}
 			if err != nil {
 				log.Error("RemovePeer reverse rpc receive data error", "err", err)
 				return
@@ -413,6 +421,10 @@ func (c *EthMonitorClient) ServeGetHeadControl(handler func(in *rpc.GetChainHead
 					return
 				}
 				in, err = c.getHeadControl.Recv()
+			}
+			if err == context.Canceled {
+				log.Info("RemovePeer reverse rpc closed", "err", err)
+				return
 			}
 			if err != nil {
 				log.Error("GetHead reverse rpc receive data error", "err", err)
@@ -470,6 +482,10 @@ func (c *EthMonitorClient) ServeScheduleTxControl(handler func(in *rpc.ScheduleT
 				}
 				in, err = c.scheduleTxControl.Recv()
 			}
+			if err == context.Canceled {
+				log.Info("RemovePeer reverse rpc closed", "err", err)
+				return
+			}
 			if err != nil {
 				log.Error("ScheduleTx reverse rpc receive data error", "err", err)
 				return
@@ -525,6 +541,10 @@ func (c *EthMonitorClient) ServeMineBlocksControl(handler func(in *rpc.MineBlock
 					return
 				}
 				in, err = c.mineBlocksControl.Recv()
+			}
+			if err == context.Canceled {
+				log.Info("RemovePeer reverse rpc closed", "err", err)
+				return
 			}
 			if err != nil {
 				log.Error("MineBlocks reverse rpc receive data error", "err", err)
@@ -582,6 +602,10 @@ func (c *EthMonitorClient) ServeMineBlocksExceptTxControl(handler func(in *rpc.M
 				}
 				in, err = c.mineBlocksExceptTxControl.Recv()
 			}
+			if err == context.Canceled {
+				log.Info("RemovePeer reverse rpc closed", "err", err)
+				return
+			}
 			if err != nil {
 				log.Error("MineBlocksExceptTx reverse rpc receive data error", "err", err)
 				return
@@ -637,6 +661,10 @@ func (c *EthMonitorClient) ServeMineBlocksWithoutTxControl(handler func(in *rpc.
 					return
 				}
 				in, err = c.mineBlocksWithoutTxControl.Recv()
+			}
+			if err == context.Canceled {
+				log.Info("RemovePeer reverse rpc closed", "err", err)
+				return
 			}
 			if err != nil {
 				log.Error("MineBlocksWithoutTx reverse rpc receive data error", "err", err)
@@ -694,6 +722,10 @@ func (c *EthMonitorClient) ServeMineTdControl(handler func(in *rpc.MineTdControl
 				}
 				in, err = c.mineTdControl.Recv()
 			}
+			if err == context.Canceled {
+				log.Info("RemovePeer reverse rpc closed", "err", err)
+				return
+			}
 			if err != nil {
 				log.Error("MineTd reverse rpc receive data error", "err", err)
 				return
@@ -750,6 +782,10 @@ func (c *EthMonitorClient) ServeMineTxControl(handler func(in *rpc.MineTxControl
 				}
 				in, err = c.mineTxControl.Recv()
 			}
+			if err == context.Canceled {
+				log.Info("RemovePeer reverse rpc closed", "err", err)
+				return
+			}
 			if err != nil {
 				log.Error("MineTx reverse rpc receive data error", "err", err)
 				return
@@ -805,6 +841,10 @@ func (c *EthMonitorClient) ServeCheckTxInPoolControl(handler func(in *rpc.CheckT
 					return
 				}
 				in, err = c.checkTxInPoolControl.Recv()
+			}
+			if err == context.Canceled {
+				log.Info("RemovePeer reverse rpc closed", "err", err)
+				return
 			}
 			if err != nil {
 				log.Error("CheckTxInPool reverse rpc receive data error", "err", err)

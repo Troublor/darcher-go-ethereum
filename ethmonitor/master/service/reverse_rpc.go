@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"github.com/ethereum/go-ethereum/ethmonitor/master/common"
 	"github.com/ethereum/go-ethereum/ethmonitor/rpc"
@@ -88,9 +89,9 @@ func (rrpc *ReverseRPC) Serve() {
 		if err == io.EOF {
 			return
 		}
-		if err != nil {
+		if err != nil && err != context.Canceled {
 			log.Error(fmt.Sprintf("ReverseRPC %s receive message error", rrpc.name), "err", err)
-			continue
+			return
 		}
 		if pendingCalls, ok := rrpc.pendingCalls.Load(reply.GetRole()); ok {
 			if call, ok := pendingCalls.(*sync.Map).Load(reply.GetId()); ok {
