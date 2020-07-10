@@ -46,3 +46,18 @@ func TestDynamicPriorityQueue(t *testing.T) {
 		t.Fatal("shouldn't pull")
 	}
 }
+
+func TestDynamicPriorityQueue_Prune(t *testing.T) {
+	queue := NewDynamicPriorityQueue(func(candidates []interface{}) (selected interface{}) {
+		return candidates[0]
+	})
+	queue.Push(1)
+	queue.Push(2)
+	queue.Prune(func(i interface{}) bool {
+		return i == 1
+	})
+	n := queue.Pull().(int)
+	if n != 2 {
+		t.Fatal("prune failed")
+	}
+}

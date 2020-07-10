@@ -79,6 +79,8 @@ func action(ctx *cli.Context) error {
 	case "darcher":
 		darcherPort := ctx.Int(DarcherPort.Name)
 		controller = ethmonitor.NewDarcherController(darcherPort)
+	case "deploy":
+		controller = ethmonitor.NewDeployController()
 	case "robustnessTest":
 		controller = ethmonitor.NewRobustnessTestController()
 	}

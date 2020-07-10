@@ -77,6 +77,21 @@ func (q *DynamicPriorityQueue) Len() int {
 	return len(q.queue)
 }
 
+/**
+Iterate all items in the queue and prune the item if pruneFunc(item) == true
+*/
+func (q *DynamicPriorityQueue) Prune(pruneFunc func(item interface{}) bool) {
+	newQ := make([]interface{}, 0)
+	q.rwMutex.Lock()
+	q.rwMutex.Unlock()
+	for _, item := range q.queue {
+		if !pruneFunc(item) {
+			newQ = append(newQ, item)
+		}
+	}
+	q.queue = newQ
+}
+
 func ExecuteSerially(fns []func() error) error {
 	for _, f := range fns {
 		err := f()

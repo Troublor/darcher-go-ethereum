@@ -3,7 +3,7 @@ package master
 import (
 	"github.com/ethereum/go-ethereum/ethmonitor/master/common"
 	"github.com/ethereum/go-ethereum/ethmonitor/rpc"
-	log "github.com/inconshreveable/log15"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 // Traverser is used to traverse the lifecycle of a Transaction
@@ -79,7 +79,7 @@ func (t *Traverser) ResumeTraverse() {
 
 	// this may block, controlled by the controller
 	t.controller.TxFinishedHook(t.tx.Hash())
-	log.Info("Tx traverse finished", "tx", t.tx.PrettyHash())
+	log.Debug("Tx traverse finished", "tx", t.tx.PrettyHash())
 }
 
 func (t *Traverser) transitStateTo(state rpc.TxState) error {
@@ -195,7 +195,7 @@ func (t *Traverser) Execute() error {
 	doneCh, errCh := t.cluster.MineTxAsyncQueued(rpc.Role_DOER, t.tx.Hash())
 	select {
 	case block := <-doneCh:
-		log.Info("Transaction has been executed on Doer", "tx", t.tx.PrettyHash(), "number", block.Number)
+		log.Debug("Transaction has been executed on Doer", "tx", t.tx.PrettyHash(), "number", block.Number)
 	case err := <-errCh:
 		log.Error("Schedule tx error", "err", err, "tx", t.tx.PrettyHash())
 		return err
@@ -210,7 +210,7 @@ func (t *Traverser) Revert() error {
 	select {
 	case <-doneCh:
 		t.tx.WaitForState(rpc.TxState_PENDING)
-		log.Info("Blockchain reorganization happens")
+		log.Debug("Blockchain reorganization happens")
 	case err := <-errCh:
 		log.Error("Revert tx failed", "tx", t.tx.PrettyHash(), "err", err)
 		return err
@@ -224,7 +224,7 @@ func (t *Traverser) Confirm() error {
 	select {
 	case <-doneCh:
 		t.tx.WaitForState(rpc.TxState_CONFIRMED)
-		log.Info("Transaction confirmed", "tx", t.tx.PrettyHash(), "confirmations", common.ConfirmationsCount)
+		log.Debug("Transaction confirmed", "tx", t.tx.PrettyHash(), "confirmations", common.ConfirmationsCount)
 	case err := <-errCh:
 		log.Error("Confirm tx failed", "tx", t.tx.PrettyHash(), "err", err)
 		return err

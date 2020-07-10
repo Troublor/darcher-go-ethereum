@@ -235,6 +235,55 @@ func (d *DarcherController) OnStateChange(txHash string, currentState rpc.TxStat
 	}
 }
 
+/**
+Deploy controller is useful when deploy contracts, it is much faster because
+it doesn't require
+*/
+type DeployController struct {
+}
+
+func NewDeployController() *DeployController {
+	return &DeployController{}
+}
+
+func (c *DeployController) SelectTxToTraverse(txs []*Transaction) (tx *Transaction) {
+	for _, tx := range txs {
+		if tx.state == rpc.TxState_CREATED || tx.state == rpc.TxState_PENDING {
+			return tx
+		}
+	}
+	return txs[0]
+}
+
+func (c *DeployController) TxReceivedHook(txHash string) {
+	log.Info("Tx received", "hash", txHash)
+}
+
+func (c *DeployController) OnStateChange(txHash string, fromState rpc.TxState, toState rpc.TxState) {
+	return
+}
+
+func (c *DeployController) PivotReachedHook(txHash string, currentState rpc.TxState) (nextState rpc.TxState, suspend bool) {
+	switch currentState {
+	case rpc.TxState_CREATED:
+		fallthrough
+	case rpc.TxState_PENDING:
+		log.Debug("Execute tx", "hash", txHash)
+		return rpc.TxState_EXECUTED, false
+	default:
+		// suspend the transaction
+		return rpc.TxState_CONFIRMED, false
+	}
+}
+
+func (c *DeployController) TxFinishedHook(txHash string) {
+	log.Info("Tx finished", "hash", txHash)
+}
+
+func (c *DeployController) TxResumeHook(txHash string) {
+	return
+}
+
 type RobustnessTestController struct {
 	counter int
 }

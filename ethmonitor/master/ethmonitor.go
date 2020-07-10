@@ -4,7 +4,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethmonitor/master/common"
 	"github.com/ethereum/go-ethereum/ethmonitor/rpc"
 	"github.com/ethereum/go-ethereum/event"
-	log "github.com/inconshreveable/log15"
+	"github.com/ethereum/go-ethereum/log"
 	"sync"
 )
 
@@ -91,6 +91,12 @@ func (m *EthMonitor) newTxLoop() {
 
 func (m *EthMonitor) traverseLoop() {
 	for {
+		// fist prune the items in the queue
+		m.traverserQueue.Prune(func(item interface{}) bool {
+			tr := item.(*Traverser)
+			return tr.Tx().HasFinalized()
+		})
+		// select next transaction to play with
 		selected := m.traverserQueue.Pull().(*Traverser)
 		selected.ResumeTraverse()
 		if !selected.tx.HasFinalized() {
