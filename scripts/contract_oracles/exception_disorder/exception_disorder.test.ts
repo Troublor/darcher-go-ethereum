@@ -11,6 +11,8 @@ describe("exception disorder oracle", () => {
         seg.push(`--input.alloc=${path.join(testCaseDir, "alloc.json")}`);
         seg.push(`--input.txs=${path.join(testCaseDir, "txs.json")}`);
         seg.push(`--input.env=${path.join(testCaseDir, "env.json")}`);
+        seg.push(`--output.alloc=${path.join(testCaseDir, "out-alloc.json")}`);
+        seg.push(`--output.result=${path.join(testCaseDir, "out-result.json")}`);
         seg.push(`--state.chainid 1337`);
         seg.push(`--analyze --analyze.report=${resultFile}`);
         seg.push(`--verbosity 2`)
