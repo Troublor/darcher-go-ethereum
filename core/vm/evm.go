@@ -132,6 +132,10 @@ type EVM struct {
 	// available gas is calculated in gasCall* according to the 63/64 rule and later
 	// applied in opCall*.
 	callGasTemp uint64
+
+	// TODO troublor modify starts
+	analyzer *EVMMonitorProxy
+	// troublor modify ends
 }
 
 // NewEVM returns a new EVM. The returned EVM is not thread safe and should
@@ -169,6 +173,15 @@ func NewEVM(ctx Context, statedb StateDB, chainConfig *params.ChainConfig, vmCon
 
 	return evm
 }
+
+// TODO troublor modify starts
+func NewEVMWithAnalyzer(ctx Context, statedb StateDB, chainConfig *params.ChainConfig, vmConfig Config) *EVM {
+	evm := NewEVM(ctx, statedb, chainConfig, vmConfig)
+	evm.analyzer = GetEVMMonitorProxy()
+	return evm
+}
+
+// troublor modify ends
 
 // Cancel cancels any running EVM operation. This may be called concurrently and
 // it's safe to be called multiple times.
@@ -241,7 +254,31 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			evm.vmConfig.Tracer.CaptureEnd(ret, gas-contract.Gas, time.Since(start), err)
 		}()
 	}
+
+	// TODO troublor modify starts: evmmonitor proxy
+	if evm.analyzer != nil {
+		evm.analyzer.BeforeMessageCall(
+			TYPE_CALL,
+			caller,
+			to,
+			input,
+			gas,
+			value,
+		)
+	}
+	// troublor modify ends
+
 	ret, err = run(evm, contract, input, false)
+
+	// TODO troublor modify starts: evmmonitor proxy
+	if evm.analyzer != nil {
+		evm.analyzer.AfterMessageCall(
+			TYPE_CALL,
+			ret,
+			err,
+		)
+	}
+	// troublor modify ends
 
 	// When an error was returned by the EVM or when setting the creation code
 	// above we revert to the snapshot and consume any gas remaining. Additionally

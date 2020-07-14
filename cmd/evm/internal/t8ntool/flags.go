@@ -26,6 +26,18 @@ import (
 )
 
 var (
+	// TODO troublor modify starts
+	EVMAnalyzer = cli.BoolFlag{
+		Name:  "analyze",
+		Usage: "evm analyzer",
+	}
+	EVMAnalyzerReport = cli.StringFlag{
+		Name:  "analyze.report",
+		Usage: "output location of the contract oracle report, default=stdout",
+		Value: "stdout",
+	}
+	// troublor modify ends
+
 	TraceFlag = cli.BoolFlag{
 		Name:  "trace",
 		Usage: "Output full trace logs to files <txhash>.jsonl",

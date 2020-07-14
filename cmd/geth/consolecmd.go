@@ -18,6 +18,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/core/vm"
 	ethmonitor_rpc "github.com/ethereum/go-ethereum/ethmonitor/rpc"
 	ethmonitor "github.com/ethereum/go-ethereum/ethmonitor/worker"
 	"os"
@@ -86,6 +87,9 @@ func localConsole(ctx *cli.Context) error {
 		role = ethmonitor_rpc.Role_TALKER
 	} else {
 		role = ethmonitor_rpc.Role_DOER
+	}
+	if ctx.GlobalBool(utils.EVMAnalyer.Name) {
+		vm.EnableEVMAnalyzer()
 	}
 	monitorPort := ctx.GlobalInt(utils.MonitorPort.Name)
 	var node *node.Node

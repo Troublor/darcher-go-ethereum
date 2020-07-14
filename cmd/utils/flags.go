@@ -139,17 +139,21 @@ func printHelp(out io.Writer, templ string, data interface{}) {
 // are the same for all commands.
 
 var (
-	// TODO troublor modify
+	// TODO troubmor modify starts
+	EVMAnalyer = cli.BoolFlag{
+		Name:  "analyze",
+		Usage: "enable evm analyzer",
+	}
 	TalkerFlag = cli.BoolFlag{
 		Name:  "talker",
 		Usage: "run as talker node",
 	}
-	// TODO troublor modify
 	MonitorPort = cli.IntFlag{
 		Name:  "monitorport",
 		Usage: "the port of ethMonitor server",
 		Value: 0,
 	}
+	// troublor modify ends
 	// General settings
 	DataDirFlag = DirectoryFlag{
 		Name:  "datadir",

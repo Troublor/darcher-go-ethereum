@@ -276,8 +276,21 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 			logged = true
 		}
 
+		// TODO troublor modify starts: evmmonitor proxy
+		if in.evm.analyzer != nil {
+			in.evm.analyzer.BeforeOperation(op, pc, callContext)
+		}
+		// troublor modify ends
+
 		// execute the operation
 		res, err = operation.execute(&pc, in, callContext)
+
+		// TODO troublor modify starts: evmmonitor proxy
+		if in.evm.analyzer != nil {
+			in.evm.analyzer.AfterOperation(op, pc, callContext)
+		}
+		// troublor modify ends
+
 		// if the operation clears the return data (e.g. it has returning data)
 		// set the last return to the result of the operation.
 		if operation.returns {

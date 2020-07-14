@@ -145,7 +145,13 @@ func (pre *Prestate) Apply(vmConfig vm.Config, chainConfig *params.ChainConfig,
 		vmContext.GasPrice = msg.GasPrice()
 		vmContext.Origin = msg.From()
 
-		evm := vm.NewEVM(vmContext, statedb, chainConfig, vmConfig)
+		// TODO troublor modify starts: comment out
+		//evm := vm.NewEVM(vmContext, statedb, chainConfig, vmConfig)
+		// troublor modify ends
+		// TODO troublor modify starts
+		evm := vm.NewEVMWithAnalyzer(vmContext, statedb, chainConfig, vmConfig)
+		vm.GetEVMMonitorProxy().BeforeTransaction(tx)
+		// troublor modify ends
 		snapshot := statedb.Snapshot()
 		// (ret []byte, usedGas uint64, failed bool, err error)
 		msgResult, err := core.ApplyMessage(evm, msg, gaspool)
@@ -184,6 +190,10 @@ func (pre *Prestate) Apply(vmConfig vm.Config, chainConfig *params.ChainConfig,
 			//receipt.BlockNumber =
 			receipt.TransactionIndex = uint(txIndex)
 			receipts = append(receipts, receipt)
+
+			// TODO troublor modify starts
+			vm.GetEVMMonitorProxy().Analyzer().AfterTransaction(tx, receipt)
+			// troublor modify ends
 		}
 		txIndex++
 	}

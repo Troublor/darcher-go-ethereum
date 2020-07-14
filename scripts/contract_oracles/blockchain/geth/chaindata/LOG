@@ -1,0 +1,74 @@
+=============== Jul 14, 2020 (HKT) ===============
+15:17:55.328979 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+15:17:55.363983 db@open opening
+15:17:55.370083 version@stat F·[] S·0B[] Sc·[]
+15:17:55.387446 db@janitor F·2 G·0
+15:17:55.387494 db@open done T·23.117944ms
+15:17:55.998208 db@close closing
+15:17:55.998385 db@close done T·175.862µs
+=============== Jul 14, 2020 (HKT) ===============
+15:19:39.357263 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+15:19:39.358263 version@stat F·[] S·0B[] Sc·[]
+15:19:39.358296 db@open opening
+15:19:39.358373 journal@recovery F·1
+15:19:39.360233 journal@recovery recovering @1
+15:19:39.371357 memdb@flush created L0@2 N·33 S·2KiB "\x03\x95\x06..\v_I,v12":"\xf1R\xb1..p\x00\x10,v15"
+15:19:39.373632 version@stat F·[1] S·2KiB[2KiB] Sc·[0.25]
+15:19:39.409144 db@janitor F·3 G·0
+15:19:39.409180 db@open done T·50.867324ms
+15:19:50.664102 db@close closing
+15:19:50.664209 db@close done T·105.552µs
+=============== Jul 14, 2020 (HKT) ===============
+15:20:40.786117 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+15:20:40.786656 version@stat F·[1] S·2KiB[2KiB] Sc·[0.25]
+15:20:40.786692 db@open opening
+15:20:40.786782 journal@recovery F·1
+15:20:40.788576 journal@recovery recovering @3
+15:20:40.799330 memdb@flush created L0@5 N·1 S·385B "eth..vP`,v35":"eth..vP`,v35"
+15:20:40.801630 version@stat F·[2] S·2KiB[2KiB] Sc·[0.50]
+15:20:40.831663 db@janitor F·4 G·0
+15:20:40.831699 db@open done T·44.990089ms
+15:21:08.927304 db@close closing
+15:21:08.927401 db@close done T·95.037µs
+=============== Jul 14, 2020 (HKT) ===============
+15:21:10.225703 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+15:21:10.225956 version@stat F·[2] S·2KiB[2KiB] Sc·[0.50]
+15:21:10.225986 db@open opening
+15:21:10.226066 journal@recovery F·1
+15:21:10.227878 journal@recovery recovering @6
+15:21:10.238985 memdb@flush created L0@8 N·1 S·385B "eth..vP`,v37":"eth..vP`,v37"
+15:21:10.241983 version@stat F·[3] S·2KiB[2KiB] Sc·[0.75]
+15:21:10.270982 db@janitor F·5 G·0
+15:21:10.271017 db@open done T·45.01741ms
+15:21:39.910934 db@close closing
+15:21:39.911042 db@close done T·106.581µs
+=============== Jul 14, 2020 (HKT) ===============
+15:21:50.855040 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+15:21:50.855325 version@stat F·[3] S·2KiB[2KiB] Sc·[0.75]
+15:21:50.855355 db@open opening
+15:21:50.855435 journal@recovery F·1
+15:21:50.857264 journal@recovery recovering @9
+15:21:50.872390 memdb@flush created L0@11 N·1 S·385B "eth..vP`,v39":"eth..vP`,v39"
+15:21:50.874664 version@stat F·[4] S·3KiB[3KiB] Sc·[1.00]
+15:21:50.912930 db@janitor F·6 G·0
+15:21:50.912965 db@open done T·57.596395ms
+15:21:50.913026 table@compaction L0·4 -> L1·0 S·3KiB Q·40
+15:21:50.925176 table@build created L1@14 N·33 S·2KiB "\x03\x95\x06..\v_I,v12":"\xf1R\xb1..p\x00\x10,v15"
+15:21:50.925239 version@stat F·[0 1] S·2KiB[0B 2KiB] Sc·[0.00 0.00]
+15:21:50.948064 table@compaction committed F-3 S-1KiB Ke·0 D·3 T·34.995714ms
+15:21:50.948550 table@remove removed @8
+15:21:50.948657 table@remove removed @5
+15:21:50.948749 table@remove removed @2
+15:24:07.555399 db@close closing
+15:24:07.555785 db@close done T·385.348µs
+=============== Jul 14, 2020 (HKT) ===============
+15:24:26.679143 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+15:24:26.680337 version@stat F·[0 1] S·2KiB[0B 2KiB] Sc·[0.00 0.00]
+15:24:26.680374 db@open opening
+15:24:26.680468 journal@recovery F·1
+15:24:26.682480 journal@recovery recovering @12
+15:24:26.694119 memdb@flush created L0@15 N·1 S·385B "eth..vP`,v41":"eth..vP`,v41"
+15:24:26.696460 version@stat F·[1 1] S·2KiB[385B 2KiB] Sc·[0.25 0.00]
+15:24:26.735998 db@janitor F·5 G·1
+15:24:26.736020 db@janitor removing table-11
+15:24:26.736113 db@open done T·55.725495ms

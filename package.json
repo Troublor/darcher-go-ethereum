@@ -9,9 +9,20 @@
   "scripts": {
     "build:ethmonitor": "make ethmonitor",
     "build:geth": "make geth",
+    "build:evm": "go build -v -i -o ./build/bin/evm ./cmd/evm/",
+    "build:all": "make all",
     "start:ethmonitor": "./build/bin/ethmonitor",
-    "start:geth": "./build/bin/geth"
+    "start:geth": "./build/bin/geth",
+    "debug:remix": "./build/bin/geth --http --http.corsdomain=\"http://remix.ethereum.org\" --ipcdisable --http.api web3,eth,debug,personal,net --vmdebug --datadir scripts/contract_oracles/blockchain --dev --analyze --monitorport -1 console"
   },
-  "dependencies": {},
-  "devDependencies": {}
+  "dependencies": {
+    "shelljs": "^0.8.4",
+    "web3": "^1.2.9"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.2.11",
+    "@types/mocha": "^8.0.0",
+    "chai": "^4.2.0",
+    "mocha": "^8.0.1"
+  }
 }

@@ -145,6 +145,10 @@ var stateTransitionCommand = cli.Command{
 		t8ntool.ChainIDFlag,
 		t8ntool.RewardFlag,
 		t8ntool.VerbosityFlag,
+		// TODO troublor modify starts
+		t8ntool.EVMAnalyzer,
+		t8ntool.EVMAnalyzerReport,
+		// troublor modify ends
 	},
 }
 

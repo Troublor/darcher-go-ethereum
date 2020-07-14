@@ -74,6 +74,12 @@ func Main(ctx *cli.Context) error {
 	glogger.Verbosity(log.Lvl(ctx.Int(VerbosityFlag.Name)))
 	log.Root().SetHandler(glogger)
 
+	// TODO troublor modify starts
+	if ctx.Bool(EVMAnalyzer.Name) {
+		vm.EnableEVMAnalyzer()
+	}
+	// troublor modify ends
+
 	var (
 		err    error
 		tracer vm.Tracer
@@ -196,6 +202,14 @@ func Main(ctx *cli.Context) error {
 	//postAlloc := state.DumpGenesisFormat(false, false, false)
 	collector := make(Alloc)
 	state.DumpToCollector(collector, false, false, false, nil, -1)
+
+	// TODO troublor modify starts
+	if ctx.Bool(EVMAnalyzer.Name) {
+		outputFile := ctx.String(EVMAnalyzerReport.Name)
+		vm.GetEVMMonitorProxy().Analyzer().Report(outputFile)
+	}
+	// troublor modify ends
+
 	return dispatchOutput(ctx, result, collector)
 
 }

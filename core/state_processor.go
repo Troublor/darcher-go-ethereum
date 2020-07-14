@@ -94,7 +94,14 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	context := NewEVMContext(msg, header, bc, author)
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
-	vmenv := vm.NewEVM(context, statedb, config, cfg)
+	// TODO troublor modify starts: comment out
+	//vmenv := vm.NewEVM(context, statedb, config, cfg)
+	// troublor modify ends: comment out
+	// TODO troublor modify starts: new evm with analyzer
+	vmenv := vm.NewEVMWithAnalyzer(context, statedb, config, cfg)
+	vm.GetEVMMonitorProxy().BeforeTransaction(tx)
+	// troublor modify ends
+
 	// Apply the transaction to the current state (included in the env)
 	result, err := ApplyMessage(vmenv, msg, gp)
 	if err != nil {
@@ -124,6 +131,10 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	receipt.BlockHash = statedb.BlockHash()
 	receipt.BlockNumber = header.Number
 	receipt.TransactionIndex = uint(statedb.TxIndex())
+
+	// TODO troublor modify starts:
+	vm.GetEVMMonitorProxy().AfterTransaction(tx, receipt)
+	// troublor modify ends
 
 	return receipt, err
 }
