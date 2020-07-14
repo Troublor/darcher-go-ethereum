@@ -22,17 +22,19 @@ type MessageCall interface {
 	GasLimit() uint64
 	Value() *big.Int
 	OutOfGas() bool
+	Exception() error
 
 	// call result
 	setCallReturn(ret []byte, err error)
 }
 
 type Call struct {
-	caller   common.Address
-	callee   common.Address
-	value    *big.Int
-	input    []byte
-	gasLimit uint64
+	caller    common.Address
+	callee    common.Address
+	value     *big.Int
+	input     []byte
+	gasLimit  uint64
+	exception error
 
 	// result fields
 	outOfGas bool
@@ -66,7 +68,12 @@ func (c *Call) OutOfGas() bool {
 	return c.outOfGas
 }
 
+func (c *Call) Exception() error {
+	return c.exception
+}
+
 func (c *Call) setCallReturn(ret []byte, err error) {
+	c.exception = err
 	if err == ErrOutOfGas {
 		c.outOfGas = true
 	}

@@ -57,3 +57,11 @@ func (s *GeneralStack) Top() interface{} {
 	}
 	return s.arr[len(s.arr)-1]
 }
+
+func IsSwap(op OpCode) bool {
+	return op == SWAP || op >= SWAP1 && op <= SWAP16
+}
+
+func IsDup(op OpCode) bool {
+	return op == DUP || op >= DUP1 && op <= DUP16
+}

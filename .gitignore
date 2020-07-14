@@ -49,3 +49,4 @@ profile.cov
 **/yarn-error.log
 
 node_modules/
+scripts/contract_oracles/blockchain/

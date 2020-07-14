@@ -278,7 +278,7 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 
 		// TODO troublor modify starts: evmmonitor proxy
 		if in.evm.analyzer != nil {
-			in.evm.analyzer.BeforeOperation(op, pc, callContext)
+			in.evm.analyzer.BeforeOperation(op, operation, pc, callContext)
 		}
 		// troublor modify ends
 
@@ -287,7 +287,7 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 
 		// TODO troublor modify starts: evmmonitor proxy
 		if in.evm.analyzer != nil {
-			in.evm.analyzer.AfterOperation(op, pc, callContext)
+			in.evm.analyzer.AfterOperation(op, operation, pc, callContext)
 		}
 		// troublor modify ends
 

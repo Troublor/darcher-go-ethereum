@@ -58,21 +58,21 @@ func (p *EVMMonitorProxy) AfterMessageCall(callType CallType, ret []byte, err er
 /**
 Callback function before opcode is executed
 */
-func (p *EVMMonitorProxy) BeforeOperation(op OpCode, pc uint64, ctx *callCtx) {
+func (p *EVMMonitorProxy) BeforeOperation(op OpCode, operation operation, pc uint64, ctx *callCtx) {
 	if !p.analyzerEnabled() {
 		return
 	}
-	p.analyzer.BeforeCall(op, pc, ctx)
+	p.analyzer.BeforeOperation(op, operation, pc, ctx)
 }
 
 /**
 Callback function after opcode is executed
 */
-func (p *EVMMonitorProxy) AfterOperation(op OpCode, pc uint64, ctx *callCtx) {
+func (p *EVMMonitorProxy) AfterOperation(op OpCode, operation operation, pc uint64, ctx *callCtx) {
 	if !p.analyzerEnabled() {
 		return
 	}
-	p.analyzer.AfterCall(op, pc, ctx)
+	p.analyzer.AfterOperation(op, operation, pc, ctx)
 }
 
 func (p *EVMMonitorProxy) BeforeTransaction(tx *types.Transaction) {
