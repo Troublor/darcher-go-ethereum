@@ -1,0 +1,9 @@
+[
+  {
+    "address": "0x9b7e411534e04e436e7093a366ccafe5c874e9d2",
+    "pc": 0,
+    "transaction": "0xdf93fdb7502a71fbe17eebdfdfd2aaf3b4aeb31cd194a30704419866ec295db7",
+    "type": "reentrancy",
+    "description": "function reentrancy found at contract 0x9b7E411534E04e436e7093a366ccAFE5c874e9d2, function 2e1a7d4d"
+  }
+]

@@ -14,6 +14,7 @@ type VulnerabilityType string
 const (
 	GASLESS_SEND       = "gasless_send"
 	EXCEPTION_DISORDER = "exception_disorder"
+	REENTRANCY         = "reentrancy"
 )
 
 type Report struct {
@@ -190,5 +191,86 @@ func (o *ExceptionDisorderOracle) AfterTransaction(tx *types.Transaction, receip
 }
 
 func (o *ExceptionDisorderOracle) Report() []Report {
+	return o.reports
+}
+
+type ReentrancyOracle struct {
+	reports []Report
+	rootTx  *types.Transaction
+}
+
+func NewReentrancyOracle() *ReentrancyOracle {
+	return &ReentrancyOracle{
+		reports: make([]Report, 0),
+	}
+}
+
+func (o *ReentrancyOracle) Type() VulnerabilityType {
+	return REENTRANCY
+}
+
+func (o *ReentrancyOracle) BeforeTransaction(tx *types.Transaction) {
+	o.rootTx = tx
+}
+
+func (o *ReentrancyOracle) BeforeMessageCall(callStack *GeneralStack, call MessageCall) {
+	if call.Type() == TYPE_CREATE {
+		// do not track create message call
+		return
+	}
+	var firstOutCall MessageCall
+	prevCallDepth := -1
+	callStack.Range(func(item interface{}, depth int) (continuous bool) {
+		prevCall := item.(MessageCall)
+		if prevCall.Function().Equal(call.Function()) {
+			// this call is the reentrancy of prevCall
+			prevCallDepth = depth
+			return false
+		}
+		return true
+	})
+	if prevCallDepth == 0 {
+		firstOutCall = call
+	} else if prevCallDepth > 0 {
+		firstOutCall = callStack.Back(prevCallDepth - 1).(MessageCall)
+	} else {
+		firstOutCall = nil
+	}
+
+	if firstOutCall != nil { // the function is reentered
+		reenteringCall := callStack.Back(prevCallDepth).(MessageCall)
+		if firstOutCall.Value().Cmp(big.NewInt(0)) > 0 && // send non-zero value
+			firstOutCall.GasLimit() > 2300 { // have enough gas to do expensive operation
+			o.reports = append(o.reports, Report{
+				Address:     reenteringCall.Function().Addr(),
+				PC:          0,
+				Transaction: o.rootTx.Hash(),
+				VulType:     REENTRANCY,
+				Description: fmt.Sprintf("function reentrancy found at contract %s, function %s", reenteringCall.Function().Addr().Hex(), reenteringCall.Function().Sig()),
+			})
+		}
+	}
+}
+
+func (o *ReentrancyOracle) BeforeOperation(op OpCode, operation operation, pc uint64, ctx *callCtx) {
+	return
+}
+
+func (o *ReentrancyOracle) AfterOperation(op OpCode, operation operation, pc uint64, ctx *callCtx) {
+	return
+}
+
+func (o *ReentrancyOracle) AfterMessageCall(callStack *GeneralStack, call MessageCall) {
+	if call.Type() == TYPE_CREATE {
+		// do not track create message call
+		return
+	}
+}
+
+func (o *ReentrancyOracle) AfterTransaction(tx *types.Transaction, receipt *types.Receipt) {
+	o.rootTx = nil
+}
+
+func (o *ReentrancyOracle) Report() []Report {
 	return o.reports
 }

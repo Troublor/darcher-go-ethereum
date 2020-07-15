@@ -28,3 +28,31 @@ func TestStack_Push(t *testing.T) {
 	}()
 	stack.Pop()
 }
+
+func TestGeneralStack_Range(t *testing.T) {
+	defer func() {
+		err := recover()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+	stack := &GeneralStack{}
+	count := 0
+	stack.Range(func(item interface{}, depth int) (continuous bool) {
+		count++
+		return true
+	})
+	if count > 0 {
+		t.Fatal()
+	}
+	stack.Push(1)
+	stack.Range(func(item interface{}, depth int) (continuous bool) {
+		if item.(int) != 1 {
+			t.Fatal()
+		}
+		if depth != 0 {
+			t.Fatal()
+		}
+		return true
+	})
+}

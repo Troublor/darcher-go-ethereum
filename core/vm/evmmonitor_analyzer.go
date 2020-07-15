@@ -25,6 +25,7 @@ func newAnalyzer() *Analyzer {
 		oracles: []Oracle{
 			NewGaslessSendOracle(),
 			NewExceptionDisorderOracle(),
+			NewReentrancyOracle(),
 		},
 	}
 }
@@ -39,6 +40,46 @@ func (a *Analyzer) BeforeMessageCall(callType CallType, caller ContractRef, call
 			value:    value,
 			input:    input,
 			gasLimit: gas,
+		}
+	case TYPE_CALLCODE:
+		call = &CallCode{
+			Call{
+				caller:   caller.Address(),
+				callee:   callee.Address(),
+				value:    value,
+				input:    input,
+				gasLimit: gas,
+			},
+		}
+	case TYPE_STATICCALL:
+		call = &StaticCall{
+			Call{
+				caller:   caller.Address(),
+				callee:   callee.Address(),
+				value:    value,
+				input:    input,
+				gasLimit: gas,
+			},
+		}
+	case TYPE_DELEGATECALL:
+		call = &DelegateCall{
+			Call{
+				caller:   caller.Address(),
+				callee:   callee.Address(),
+				value:    value,
+				input:    input,
+				gasLimit: gas,
+			},
+		}
+	case TYPE_CREATE:
+		call = &Create{
+			Call{
+				caller:   caller.Address(),
+				callee:   callee.Address(),
+				value:    value,
+				input:    input,
+				gasLimit: gas,
+			},
 		}
 	}
 	for _, oracle := range a.oracles {

@@ -323,7 +323,31 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 	contract := NewContract(caller, to, value, gas)
 	contract.SetCallCode(&addr, evm.StateDB.GetCodeHash(addr), evm.StateDB.GetCode(addr))
 
+	// TODO troublor modify starts: evmmonitor proxy
+	if evm.analyzer != nil {
+		evm.analyzer.BeforeMessageCall(
+			TYPE_CALLCODE,
+			caller,
+			AccountRef(addr),
+			input,
+			gas,
+			value,
+		)
+	}
+	// troublor modify ends
+
 	ret, err = run(evm, contract, input, false)
+
+	// TODO troublor modify starts: evmmonitor proxy
+	if evm.analyzer != nil {
+		evm.analyzer.AfterMessageCall(
+			TYPE_CALLCODE,
+			ret,
+			err,
+		)
+	}
+	// troublor modify ends
+
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
 		if err != ErrExecutionReverted {
@@ -354,7 +378,31 @@ func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []by
 	contract := NewContract(caller, to, nil, gas).AsDelegate()
 	contract.SetCallCode(&addr, evm.StateDB.GetCodeHash(addr), evm.StateDB.GetCode(addr))
 
+	// TODO troublor modify starts: evmmonitor proxy
+	if evm.analyzer != nil {
+		evm.analyzer.BeforeMessageCall(
+			TYPE_DELEGATECALL,
+			caller,
+			AccountRef(addr),
+			input,
+			gas,
+			new(big.Int),
+		)
+	}
+	// troublor modify ends
+
 	ret, err = run(evm, contract, input, false)
+
+	// TODO troublor modify starts: evmmonitor proxy
+	if evm.analyzer != nil {
+		evm.analyzer.AfterMessageCall(
+			TYPE_DELEGATECALL,
+			ret,
+			err,
+		)
+	}
+	// troublor modify ends
+
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
 		if err != ErrExecutionReverted {
@@ -391,10 +439,34 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 	// future scenarios
 	evm.StateDB.AddBalance(addr, big.NewInt(0))
 
+	// TODO troublor modify starts: evmmonitor proxy
+	if evm.analyzer != nil {
+		evm.analyzer.BeforeMessageCall(
+			TYPE_STATICCALL,
+			caller,
+			to,
+			input,
+			gas,
+			new(big.Int),
+		)
+	}
+	// troublor modify ends
+
 	// When an error was returned by the EVM or when setting the creation code
 	// above we revert to the snapshot and consume any gas remaining. Additionally
 	// when we're in Homestead this also counts for code storage gas errors.
 	ret, err = run(evm, contract, input, true)
+
+	// TODO troublor modify starts: evmmonitor proxy
+	if evm.analyzer != nil {
+		evm.analyzer.AfterMessageCall(
+			TYPE_STATICCALL,
+			ret,
+			err,
+		)
+	}
+	// troublor modify ends
+
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
 		if err != ErrExecutionReverted {
@@ -456,7 +528,30 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	}
 	start := time.Now()
 
+	// TODO troublor modify starts: evmmonitor proxy
+	if evm.analyzer != nil {
+		evm.analyzer.BeforeMessageCall(
+			TYPE_CREATE,
+			caller,
+			nil,
+			nil,
+			gas,
+			value,
+		)
+	}
+	// troublor modify ends
+
 	ret, err := run(evm, contract, nil, false)
+
+	// TODO troublor modify starts: evmmonitor proxy
+	if evm.analyzer != nil {
+		evm.analyzer.AfterMessageCall(
+			TYPE_CREATE,
+			ret,
+			err,
+		)
+	}
+	// troublor modify ends
 
 	// check whether the max code size has been exceeded
 	maxCodeSizeExceeded := evm.chainRules.IsEIP158 && len(ret) > params.MaxCodeSize

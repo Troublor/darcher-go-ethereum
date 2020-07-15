@@ -48,6 +48,16 @@ func (s *GeneralStack) Len() int {
 	return len(s.arr)
 }
 
+func (s *GeneralStack) Range(rangeFunc func(item interface{}, depth int) (continuous bool)) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	for i := len(s.arr) - 1; i >= 0; i-- {
+		if !rangeFunc(s.arr[i], len(s.arr)-1-i) {
+			break
+		}
+	}
+}
+
 func (s *GeneralStack) Top() interface{} {
 	s.prepare()
 	s.mutex.RLock()
@@ -56,6 +66,15 @@ func (s *GeneralStack) Top() interface{} {
 		panic(StackUnderflowErr)
 	}
 	return s.arr[len(s.arr)-1]
+}
+
+func (s *GeneralStack) Back(n int) interface{} {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	if n > len(s.arr)-1 {
+		return nil
+	}
+	return s.arr[len(s.arr)-1-n]
 }
 
 func IsSwap(op OpCode) bool {
