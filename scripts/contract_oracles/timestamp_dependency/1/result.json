@@ -1,0 +1,9 @@
+[
+  {
+    "address": "0xe4d872394d4ce6a3b392971f9fc187f0ef0ae94c",
+    "pc": 175,
+    "transaction": "0x3adc9726a48fda487eb84e6389bf5674aa8707c906105040faa637ce5924d964",
+    "type": "timestamp_dependency",
+    "description": "timestamp dependency found at contract 0xE4D872394D4cE6a3B392971F9fc187f0Ef0AE94c, function 7f17a0d0, CALL opcode at 175"
+  }
+]

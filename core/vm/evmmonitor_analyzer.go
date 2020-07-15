@@ -26,6 +26,7 @@ func newAnalyzer() *Analyzer {
 			NewGaslessSendOracle(),
 			NewExceptionDisorderOracle(),
 			NewReentrancyOracle(),
+			NewTimestampDependencyOracle(),
 		},
 	}
 }

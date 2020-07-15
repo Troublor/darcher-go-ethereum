@@ -12,9 +12,10 @@ import (
 type VulnerabilityType string
 
 const (
-	GASLESS_SEND       = "gasless_send"
-	EXCEPTION_DISORDER = "exception_disorder"
-	REENTRANCY         = "reentrancy"
+	GASLESS_SEND         = "gasless_send"
+	EXCEPTION_DISORDER   = "exception_disorder"
+	REENTRANCY           = "reentrancy"
+	TIMESTAMP_DEPENDENCY = "timestamp_dependency"
 )
 
 type Report struct {
@@ -72,7 +73,7 @@ func (o *GaslessSendOracle) BeforeMessageCall(callStack *GeneralStack, call Mess
 }
 
 func (o *GaslessSendOracle) BeforeOperation(op OpCode, operation operation, pc uint64, ctx *callCtx) {
-	if op == CALL {
+	if op == CALL || op == CALLCODE {
 		gasLimit := ctx.stack.Back(0)
 		value := ctx.stack.Back(2)
 		inOffset, inSize := ctx.stack.Back(3), ctx.stack.Back(4)
@@ -272,5 +273,64 @@ func (o *ReentrancyOracle) AfterTransaction(tx *types.Transaction, receipt *type
 }
 
 func (o *ReentrancyOracle) Report() []Report {
+	return o.reports
+}
+
+type TimestampDependencyOracle struct {
+	reports      []Report
+	currentTx    *types.Transaction
+	currentCall  MessageCall
+	useTimestamp bool
+}
+
+func NewTimestampDependencyOracle() *TimestampDependencyOracle {
+	return &TimestampDependencyOracle{reports: make([]Report, 0)}
+}
+
+func (o *TimestampDependencyOracle) Type() VulnerabilityType {
+	return TIMESTAMP_DEPENDENCY
+}
+
+func (o *TimestampDependencyOracle) BeforeTransaction(tx *types.Transaction) {
+	o.currentTx = tx
+}
+
+func (o *TimestampDependencyOracle) BeforeMessageCall(callStack *GeneralStack, call MessageCall) {
+	o.currentCall = call
+}
+
+func (o *TimestampDependencyOracle) BeforeOperation(op OpCode, operation operation, pc uint64, ctx *callCtx) {
+	if op == TIMESTAMP {
+		o.useTimestamp = true
+	} else if o.useTimestamp && (op == CALL || op == CALLCODE) {
+		// use timestamp before CALL in current call
+		value := ctx.stack.Back(2)
+		if value.Cmp(uint256.NewInt()) > 0 {
+			// have transferred non-zero values
+			o.reports = append(o.reports, Report{
+				Address:     o.currentCall.Callee(),
+				PC:          pc,
+				Transaction: o.currentTx.Hash(),
+				VulType:     TIMESTAMP_DEPENDENCY,
+				Description: fmt.Sprintf("timestamp dependency found at contract %s, function %s, CALL opcode at %d", o.currentCall.Callee().Hex(), o.currentCall.Function().Sig(), pc),
+			})
+		}
+	}
+}
+
+func (o *TimestampDependencyOracle) AfterOperation(op OpCode, operation operation, pc uint64, ctx *callCtx) {
+	return
+}
+
+func (o *TimestampDependencyOracle) AfterMessageCall(callStack *GeneralStack, call MessageCall) {
+	o.currentCall = nil
+	o.useTimestamp = false
+}
+
+func (o *TimestampDependencyOracle) AfterTransaction(tx *types.Transaction, receipt *types.Receipt) {
+	o.currentTx = nil
+}
+
+func (o *TimestampDependencyOracle) Report() []Report {
 	return o.reports
 }
