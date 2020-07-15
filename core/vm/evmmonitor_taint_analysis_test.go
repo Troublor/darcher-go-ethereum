@@ -25,7 +25,7 @@ func TestArithmeticOpCodes(t *testing.T) {
 		pc:        0,
 		op:        PUSH32,
 		operation: jt[PUSH32],
-	})
+	}, nil)
 	var (
 		mem         = NewMemory()      // bound memory
 		stack       = newstack()       // local stack
@@ -79,7 +79,7 @@ func TestMemoryOps(t *testing.T) {
 		pc:        0,
 		op:        PUSH32,
 		operation: jt[PUSH32],
-	})
+	}, nil)
 	var (
 		mem         = NewMemory()      // bound memory
 		stack       = newstack()       // local stack
@@ -139,7 +139,7 @@ func TestStorageOps(t *testing.T) {
 		pc:        0,
 		op:        PUSH32,
 		operation: jt[PUSH32],
-	})
+	}, nil)
 	var (
 		mem         = NewMemory()      // bound memory
 		stack       = newstack()       // local stack

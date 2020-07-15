@@ -273,12 +273,40 @@ type TaintTracker struct {
 	taintedPositions []TaintedPosition
 }
 
-func NewTaintTracker(source ProgramPoint) *TaintTracker {
+func NewTaintTracker(source ProgramPoint, ctx *callCtx) *TaintTracker {
 	positions := make([]TaintedPosition, 0)
-	numPop := source.operation.minStack
-	numPush := int(params.StackLimit + uint64(numPop) - uint64(source.operation.maxStack))
-	for i := 0; i < numPush; i++ {
-		positions = append(positions, &StackPosition{depth: i})
+	// special cases
+	if source.op == CALLDATACOPY {
+		memStart, length := ctx.stack.Back(0), ctx.stack.Back(2)
+		positions = append(positions, &MemoryPosition{
+			offset: memStart.Uint64(),
+			size:   length.Uint64(),
+		})
+	} else if source.op == MSTORE {
+		start := ctx.stack.Back(0)
+		positions = append(positions, &MemoryPosition{
+			offset: start.Uint64(),
+			size:   32,
+		})
+
+	} else if source.op == MSTORE8 {
+		start := ctx.stack.Back(0)
+		positions = append(positions, &MemoryPosition{
+			offset: start.Uint64(),
+			size:   8,
+		})
+	} else if source.op == SSTORE {
+		start := ctx.stack.Back(0)
+		positions = append(positions, &StoragePosition{
+			account: ctx.contract.Address(),
+			key:     start.Bytes32(),
+		})
+	} else {
+		numPop := source.operation.minStack
+		numPush := int(params.StackLimit + uint64(numPop) - uint64(source.operation.maxStack))
+		for i := 0; i < numPush; i++ {
+			positions = append(positions, &StackPosition{depth: i})
+		}
 	}
 	return &TaintTracker{
 		taintSource:      source,
