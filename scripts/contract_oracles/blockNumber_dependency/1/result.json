@@ -1,0 +1,9 @@
+[
+  {
+    "address": "0xb711097b8c9acf3593651e78747fa87dcc2a7b75",
+    "pc": 310,
+    "transaction": "0x47814c716100ce8bc741cb8f353740a754c7aecf52a70fc30c0a74d41a973f59",
+    "type": "blockNumber_dependency",
+    "description": "blockNumber dependency found at contract 0xB711097B8C9ACf3593651E78747FA87dcC2A7B75, function 778220b7, CALL opcode at 310"
+  }
+]

@@ -27,6 +27,7 @@ func newAnalyzer() *Analyzer {
 			NewExceptionDisorderOracle(),
 			NewReentrancyOracle(),
 			NewTimestampDependencyOracle(),
+			NewBlockNumberDependencyOracle(),
 		},
 	}
 }

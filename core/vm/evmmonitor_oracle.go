@@ -12,10 +12,11 @@ import (
 type VulnerabilityType string
 
 const (
-	GASLESS_SEND         = "gasless_send"
-	EXCEPTION_DISORDER   = "exception_disorder"
-	REENTRANCY           = "reentrancy"
-	TIMESTAMP_DEPENDENCY = "timestamp_dependency"
+	GASLESS_SEND           = "gasless_send"
+	EXCEPTION_DISORDER     = "exception_disorder"
+	REENTRANCY             = "reentrancy"
+	TIMESTAMP_DEPENDENCY   = "timestamp_dependency"
+	BLOCKNUMBER_DEPENDENCY = "blockNumber_dependency"
 )
 
 type Report struct {
@@ -332,5 +333,64 @@ func (o *TimestampDependencyOracle) AfterTransaction(tx *types.Transaction, rece
 }
 
 func (o *TimestampDependencyOracle) Report() []Report {
+	return o.reports
+}
+
+type BlockNumberDependencyOracle struct {
+	reports        []Report
+	currentTx      *types.Transaction
+	currentCall    MessageCall
+	useBlockNumber bool
+}
+
+func NewBlockNumberDependencyOracle() *BlockNumberDependencyOracle {
+	return &BlockNumberDependencyOracle{reports: make([]Report, 0)}
+}
+
+func (o *BlockNumberDependencyOracle) Type() VulnerabilityType {
+	return BLOCKNUMBER_DEPENDENCY
+}
+
+func (o *BlockNumberDependencyOracle) BeforeTransaction(tx *types.Transaction) {
+	o.currentTx = tx
+}
+
+func (o *BlockNumberDependencyOracle) BeforeMessageCall(callStack *GeneralStack, call MessageCall) {
+	o.currentCall = call
+}
+
+func (o *BlockNumberDependencyOracle) BeforeOperation(op OpCode, operation operation, pc uint64, ctx *callCtx) {
+	if op == NUMBER {
+		o.useBlockNumber = true
+	} else if o.useBlockNumber && (op == CALL || op == CALLCODE) {
+		// use timestamp before CALL in current call
+		value := ctx.stack.Back(2)
+		if value.Cmp(uint256.NewInt()) > 0 {
+			// have transferred non-zero values
+			o.reports = append(o.reports, Report{
+				Address:     o.currentCall.Callee(),
+				PC:          pc,
+				Transaction: o.currentTx.Hash(),
+				VulType:     BLOCKNUMBER_DEPENDENCY,
+				Description: fmt.Sprintf("blockNumber dependency found at contract %s, function %s, CALL opcode at %d", o.currentCall.Callee().Hex(), o.currentCall.Function().Sig(), pc),
+			})
+		}
+	}
+}
+
+func (o *BlockNumberDependencyOracle) AfterOperation(op OpCode, operation operation, pc uint64, ctx *callCtx) {
+	return
+}
+
+func (o *BlockNumberDependencyOracle) AfterMessageCall(callStack *GeneralStack, call MessageCall) {
+	o.currentCall = nil
+	o.useBlockNumber = false
+}
+
+func (o *BlockNumberDependencyOracle) AfterTransaction(tx *types.Transaction, receipt *types.Receipt) {
+	o.currentTx = nil
+}
+
+func (o *BlockNumberDependencyOracle) Report() []Report {
 	return o.reports
 }
