@@ -1,0 +1,9 @@
+[
+  {
+    "address": "0x0510c90c76958affa6321032d82c91b96d99bc2c",
+    "pc": 419,
+    "transaction": "0x104fafac77652bc7bf6be189d8be4da9dbfd218328998b96c850ad1104e4084a",
+    "type": "dangerous_delegatecall",
+    "description": "dangerous delegate call at contract 0x0510c90c76958affa6321032d82C91b96d99bC2c, function a635f01d, DELEGATECALL at 419"
+  }
+]

@@ -334,10 +334,45 @@ func (t *TaintTracker) addTaintedPosition(position TaintedPosition) {
 	t.taintedPositions = append(t.taintedPositions, position)
 }
 
-func (t *TaintTracker) IsTainted(op OpCode, operation operation, ctx *callCtx) bool {
+func (t *TaintTracker) IsOpTainted(op OpCode, operation operation, ctx *callCtx) bool {
 	for _, p := range t.taintedPositions {
 		if p.IsUsed(op, operation, ctx) {
 			return true
+		}
+	}
+	return false
+}
+
+func (t *TaintTracker) IsStackTainted(depths ...int) bool {
+	for _, pos := range t.taintedPositions {
+		if sp, ok := pos.(*StackPosition); ok {
+			for _, d := range depths {
+				if sp.depth == d {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func (t *TaintTracker) IsMemoryTainted(offset uint64, size uint64) bool {
+	for _, pos := range t.taintedPositions {
+		if mp, ok := pos.(*MemoryPosition); ok {
+			if !(offset+size <= mp.offset || offset >= mp.offset+mp.offset) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (t *TaintTracker) IsStorageTainted(account common.Address, key common.Hash) bool {
+	for _, pos := range t.taintedPositions {
+		if sp, ok := pos.(*StoragePosition); ok {
+			if account == sp.account && sp.key == key {
+				return true
+			}
 		}
 	}
 	return false

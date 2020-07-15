@@ -2,7 +2,7 @@ import * as shell from "shelljs";
 import * as path from "path";
 import {expect} from "chai";
 
-describe("blockNumber dependency oracle", () => {
+describe("dangerous delegatecall oracle", () => {
     it('should pass test case 1', async function () {
         let testCaseDir = path.join(__dirname, "1");
         let binDir = path.join(__dirname, "..", "..", "..", "build", "bin");
@@ -20,7 +20,7 @@ describe("blockNumber dependency oracle", () => {
         shell.exec(`${cmd}`)
         let results = await import(resultFile);
         expect(results).to.be.lengthOf(1);
-        expect(results[0].type).to.be.equal("blockNumber_dependency");
-        expect(results[0].transaction).to.be.equal("0x47814c716100ce8bc741cb8f353740a754c7aecf52a70fc30c0a74d41a973f59");
+        expect(results[0].type).to.be.equal("dangerous_delegatecall");
+        expect(results[0].transaction).to.be.equal("0x104fafac77652bc7bf6be189d8be4da9dbfd218328998b96c850ad1104e4084a");
     });
 });

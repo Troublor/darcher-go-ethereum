@@ -17,6 +17,7 @@ const (
 	REENTRANCY             = "reentrancy"
 	TIMESTAMP_DEPENDENCY   = "timestamp_dependency"
 	BLOCKNUMBER_DEPENDENCY = "blockNumber_dependency"
+	DANGEROUS_DELEGATECALL = "dangerous_delegatecall"
 )
 
 type Report struct {
@@ -324,7 +325,7 @@ func (o *TimestampDependencyOracle) AfterOperation(op OpCode, operation operatio
 }
 
 func (o *TimestampDependencyOracle) AfterMessageCall(callStack *GeneralStack, call MessageCall) {
-	o.currentCall = nil
+	o.currentCall, _ = callStack.Back(1).(MessageCall)
 	o.useTimestamp = false
 }
 
@@ -383,7 +384,7 @@ func (o *BlockNumberDependencyOracle) AfterOperation(op OpCode, operation operat
 }
 
 func (o *BlockNumberDependencyOracle) AfterMessageCall(callStack *GeneralStack, call MessageCall) {
-	o.currentCall = nil
+	o.currentCall, _ = callStack.Back(1).(MessageCall)
 	o.useBlockNumber = false
 }
 
@@ -392,5 +393,78 @@ func (o *BlockNumberDependencyOracle) AfterTransaction(tx *types.Transaction, re
 }
 
 func (o *BlockNumberDependencyOracle) Report() []Report {
+	return o.reports
+}
+
+type DangerousDelegateCallOracle struct {
+	reports          []Report
+	currentTx        *types.Transaction
+	currentCall      MessageCall
+	callDataTrackers []*TaintTracker
+}
+
+func NewDangerousDelegateCallOracle() *DangerousDelegateCallOracle {
+	return &DangerousDelegateCallOracle{
+		reports:          make([]Report, 0),
+		callDataTrackers: make([]*TaintTracker, 0),
+	}
+}
+
+func (o *DangerousDelegateCallOracle) Type() VulnerabilityType {
+	return DANGEROUS_DELEGATECALL
+}
+
+func (o *DangerousDelegateCallOracle) BeforeTransaction(tx *types.Transaction) {
+	o.currentTx = tx
+}
+
+func (o *DangerousDelegateCallOracle) BeforeMessageCall(callStack *GeneralStack, call MessageCall) {
+	o.currentCall = call
+}
+
+func (o *DangerousDelegateCallOracle) BeforeOperation(op OpCode, operation operation, pc uint64, ctx *callCtx) {
+	if op == CALLDATALOAD || op == CALLDATACOPY {
+		// tainted source is call data
+		o.callDataTrackers = append(o.callDataTrackers, NewTaintTracker(ProgramPoint{
+			pc:        pc,
+			op:        op,
+			operation: operation,
+		}, ctx))
+	} else if op == DELEGATECALL {
+		// tainted sink is delegate call's input
+		inOffset, inSize := ctx.stack.Back(2).Uint64(), ctx.stack.Back(3).Uint64()
+		for _, tracker := range o.callDataTrackers {
+			// stack depth 1 is the address of delegate call code
+			if tracker.IsStackTainted(1) || tracker.IsMemoryTainted(inOffset, inSize) {
+				o.reports = append(o.reports, Report{
+					Address:     o.currentCall.Callee(),
+					PC:          pc,
+					Transaction: o.currentTx.Hash(),
+					VulType:     DANGEROUS_DELEGATECALL,
+					Description: fmt.Sprintf("dangerous delegate call at contract %s, function %s, DELEGATECALL at %d", o.currentCall.Callee().Hex(), o.currentCall.Function().Sig(), pc),
+				})
+			}
+		}
+	} else {
+		// taint propagate
+		for _, tracker := range o.callDataTrackers {
+			tracker.Propagate(op, operation, ctx)
+		}
+	}
+}
+
+func (o *DangerousDelegateCallOracle) AfterOperation(op OpCode, operation operation, pc uint64, ctx *callCtx) {
+	return
+}
+
+func (o *DangerousDelegateCallOracle) AfterMessageCall(callStack *GeneralStack, call MessageCall) {
+	o.currentCall, _ = callStack.Back(1).(MessageCall)
+}
+
+func (o *DangerousDelegateCallOracle) AfterTransaction(tx *types.Transaction, receipt *types.Receipt) {
+	o.currentTx = nil
+}
+
+func (o *DangerousDelegateCallOracle) Report() []Report {
 	return o.reports
 }

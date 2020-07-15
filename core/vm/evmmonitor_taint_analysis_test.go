@@ -50,12 +50,12 @@ func TestArithmeticOpCodes(t *testing.T) {
 		DUP4,
 	}
 	for _, o := range shouldNotTaintOps {
-		if tracker.IsTainted(o, jt[o], callContext) {
+		if tracker.IsOpTainted(o, jt[o], callContext) {
 			t.Fatal()
 		}
 	}
 	for _, o := range shouldTaintOps {
-		if !tracker.IsTainted(o, jt[o], callContext) {
+		if !tracker.IsOpTainted(o, jt[o], callContext) {
 			t.Fatal()
 		}
 	}
@@ -116,12 +116,12 @@ func TestMemoryOps(t *testing.T) {
 		DUP2,
 	}
 	for _, o := range shouldNotTaintOps {
-		if tracker.IsTainted(o, jt[o], callContext) {
+		if tracker.IsOpTainted(o, jt[o], callContext) {
 			t.Fatal()
 		}
 	}
 	for _, o := range shouldTaintOps {
-		if !tracker.IsTainted(o, jt[o], callContext) {
+		if !tracker.IsOpTainted(o, jt[o], callContext) {
 			t.Fatal()
 		}
 	}
@@ -174,12 +174,12 @@ func TestStorageOps(t *testing.T) {
 		DUP1,
 	}
 	for _, o := range shouldNotTaintOps {
-		if tracker.IsTainted(o, jt[o], callContext) {
+		if tracker.IsOpTainted(o, jt[o], callContext) {
 			t.Fatal()
 		}
 	}
 	for _, o := range shouldTaintOps {
-		if !tracker.IsTainted(o, jt[o], callContext) {
+		if !tracker.IsOpTainted(o, jt[o], callContext) {
 			t.Fatal()
 		}
 	}
