@@ -192,7 +192,7 @@ func (pre *Prestate) Apply(vmConfig vm.Config, chainConfig *params.ChainConfig,
 			receipts = append(receipts, receipt)
 
 			// TODO troublor modify starts
-			vm.GetEVMMonitorProxy().Analyzer().AfterTransaction(tx, receipt)
+			vm.GetEVMMonitorProxy().AfterTransaction(tx, receipt)
 			// troublor modify ends
 		}
 		txIndex++

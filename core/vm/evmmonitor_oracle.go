@@ -2,8 +2,8 @@ package vm
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethmonitor/rpc"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/holiman/uint256"
 	"math/big"
@@ -11,25 +11,8 @@ import (
 
 type VulnerabilityType string
 
-const (
-	GASLESS_SEND           = "gasless_send"
-	EXCEPTION_DISORDER     = "exception_disorder"
-	REENTRANCY             = "reentrancy"
-	TIMESTAMP_DEPENDENCY   = "timestamp_dependency"
-	BLOCKNUMBER_DEPENDENCY = "blockNumber_dependency"
-	DANGEROUS_DELEGATECALL = "dangerous_delegatecall"
-)
-
-type Report struct {
-	Address     common.Address    `json:"address"`
-	PC          uint64            `json:"pc"`
-	Transaction common.Hash       `json:"transaction"`
-	VulType     VulnerabilityType `json:"type"`
-	Description string            `json:"description"`
-}
-
 type Oracle interface {
-	Type() VulnerabilityType
+	Type() rpc.ContractVulType
 	BeforeTransaction(tx *types.Transaction)
 	BeforeMessageCall(callStack *GeneralStack, call MessageCall)
 	BeforeOperation(op OpCode, operation operation, pc uint64, ctx *callCtx)
@@ -37,12 +20,12 @@ type Oracle interface {
 	AfterMessageCall(callStack *GeneralStack, call MessageCall)
 	AfterTransaction(tx *types.Transaction, receipt *types.Receipt)
 
-	Report() []Report
+	Reports() []*rpc.ContractVulReport
 }
 
 type GaslessSendOracle struct {
 	currentTx *types.Transaction
-	reports   []Report
+	reports   []*rpc.ContractVulReport
 
 	shouldCheck bool
 	pc          int
@@ -53,7 +36,7 @@ type GaslessSendOracle struct {
 
 func NewGaslessSendOracle() *GaslessSendOracle {
 	return &GaslessSendOracle{
-		reports:     make([]Report, 0),
+		reports:     make([]*rpc.ContractVulReport, 0),
 		shouldCheck: false,
 		pc:          0,
 
@@ -98,13 +81,15 @@ func (o *GaslessSendOracle) AfterOperation(op OpCode, operation operation, pc ui
 
 func (o *GaslessSendOracle) AfterMessageCall(callStack *GeneralStack, call MessageCall) {
 	if o.sendStack.Len() > 0 && o.sendStack.Top().(MessageCall) == call {
-		if call.OutOfGas() {
+		if call.OutOfGas() && callStack.Len() > 1 {
+			prevCall := callStack.Back(1).(MessageCall)
 			// gasless send when a send() throws ErrOutOfGas
-			o.reports = append(o.reports, Report{
-				Address:     call.Caller(),
-				VulType:     o.Type(),
-				Transaction: o.currentTx.Hash(),
-				PC:          o.pcStack.Top().(uint64),
+			o.reports = append(o.reports, &rpc.ContractVulReport{
+				Address:     call.Caller().Hex(),
+				FuncSig:     prevCall.Function().Sig().Hex(),
+				Type:        o.Type(),
+				TxHash:      o.currentTx.Hash().Hex(),
+				Pc:          o.pcStack.Top().(uint64),
 				Description: fmt.Sprintf("gasless send at %d", o.pcStack.Top().(uint64)),
 			})
 			log.Info("gasless send")
@@ -119,16 +104,16 @@ func (o *GaslessSendOracle) AfterTransaction(tx *types.Transaction, receipt *typ
 	return
 }
 
-func (o *GaslessSendOracle) Report() []Report {
+func (o *GaslessSendOracle) Reports() []*rpc.ContractVulReport {
 	return o.reports
 }
 
-func (o *GaslessSendOracle) Type() VulnerabilityType {
-	return GASLESS_SEND
+func (o *GaslessSendOracle) Type() rpc.ContractVulType {
+	return rpc.ContractVulType_GASLESS_SEND
 }
 
 type ExceptionDisorderOracle struct {
-	reports []Report
+	reports []*rpc.ContractVulReport
 
 	newTx           bool
 	rootTx          *types.Transaction
@@ -137,11 +122,11 @@ type ExceptionDisorderOracle struct {
 }
 
 func NewExceptionDisorderOracle() *ExceptionDisorderOracle {
-	return &ExceptionDisorderOracle{reports: make([]Report, 0)}
+	return &ExceptionDisorderOracle{reports: make([]*rpc.ContractVulReport, 0)}
 }
 
-func (o *ExceptionDisorderOracle) Type() VulnerabilityType {
-	return EXCEPTION_DISORDER
+func (o *ExceptionDisorderOracle) Type() rpc.ContractVulType {
+	return rpc.ContractVulType_EXCEPTION_DISORDER
 }
 
 func (o *ExceptionDisorderOracle) BeforeTransaction(tx *types.Transaction) {
@@ -177,11 +162,10 @@ func (o *ExceptionDisorderOracle) AfterMessageCall(callStack *GeneralStack, call
 		// this is the end of root message call
 		if o.nestedException && call.Exception() == nil {
 			// if exceptions are thrown in the nested call but root call does not throw any exception
-			o.reports = append(o.reports, Report{
-				Address:     o.rootCall.Callee(),
-				PC:          0,
-				Transaction: o.rootTx.Hash(),
-				VulType:     o.Type(),
+			o.reports = append(o.reports, &rpc.ContractVulReport{
+				Address:     o.rootCall.Callee().Hex(),
+				TxHash:      o.rootTx.Hash().Hex(),
+				Type:        o.Type(),
 				Description: "exception disorder",
 			})
 		}
@@ -193,23 +177,23 @@ func (o *ExceptionDisorderOracle) AfterTransaction(tx *types.Transaction, receip
 	o.rootCall = nil
 }
 
-func (o *ExceptionDisorderOracle) Report() []Report {
+func (o *ExceptionDisorderOracle) Reports() []*rpc.ContractVulReport {
 	return o.reports
 }
 
 type ReentrancyOracle struct {
-	reports []Report
+	reports []*rpc.ContractVulReport
 	rootTx  *types.Transaction
 }
 
 func NewReentrancyOracle() *ReentrancyOracle {
 	return &ReentrancyOracle{
-		reports: make([]Report, 0),
+		reports: make([]*rpc.ContractVulReport, 0),
 	}
 }
 
-func (o *ReentrancyOracle) Type() VulnerabilityType {
-	return REENTRANCY
+func (o *ReentrancyOracle) Type() rpc.ContractVulType {
+	return rpc.ContractVulType_REENTRANCY
 }
 
 func (o *ReentrancyOracle) BeforeTransaction(tx *types.Transaction) {
@@ -244,12 +228,12 @@ func (o *ReentrancyOracle) BeforeMessageCall(callStack *GeneralStack, call Messa
 		reenteringCall := callStack.Back(prevCallDepth).(MessageCall)
 		if firstOutCall.Value().Cmp(big.NewInt(0)) > 0 && // send non-zero value
 			firstOutCall.GasLimit() > 2300 { // have enough gas to do expensive operation
-			o.reports = append(o.reports, Report{
-				Address:     reenteringCall.Function().Addr(),
-				PC:          0,
-				Transaction: o.rootTx.Hash(),
-				VulType:     REENTRANCY,
-				Description: fmt.Sprintf("function reentrancy found at contract %s, function %s", reenteringCall.Function().Addr().Hex(), reenteringCall.Function().Sig()),
+			o.reports = append(o.reports, &rpc.ContractVulReport{
+				Address:     reenteringCall.Function().Addr().Hex(),
+				TxHash:      o.rootTx.Hash().Hex(),
+				FuncSig:     reenteringCall.Function().Sig().Hex(),
+				Type:        o.Type(),
+				Description: fmt.Sprintf("function reentrancy found at contract %s, function %s", reenteringCall.Function().Addr().Hex(), reenteringCall.Function().Sig().Hex()),
 			})
 		}
 	}
@@ -274,23 +258,23 @@ func (o *ReentrancyOracle) AfterTransaction(tx *types.Transaction, receipt *type
 	o.rootTx = nil
 }
 
-func (o *ReentrancyOracle) Report() []Report {
+func (o *ReentrancyOracle) Reports() []*rpc.ContractVulReport {
 	return o.reports
 }
 
 type TimestampDependencyOracle struct {
-	reports      []Report
+	reports      []*rpc.ContractVulReport
 	currentTx    *types.Transaction
 	currentCall  MessageCall
 	useTimestamp bool
 }
 
 func NewTimestampDependencyOracle() *TimestampDependencyOracle {
-	return &TimestampDependencyOracle{reports: make([]Report, 0)}
+	return &TimestampDependencyOracle{reports: make([]*rpc.ContractVulReport, 0)}
 }
 
-func (o *TimestampDependencyOracle) Type() VulnerabilityType {
-	return TIMESTAMP_DEPENDENCY
+func (o *TimestampDependencyOracle) Type() rpc.ContractVulType {
+	return rpc.ContractVulType_TIMESTAMP_DEPENDENCY
 }
 
 func (o *TimestampDependencyOracle) BeforeTransaction(tx *types.Transaction) {
@@ -309,12 +293,14 @@ func (o *TimestampDependencyOracle) BeforeOperation(op OpCode, operation operati
 		value := ctx.stack.Back(2)
 		if value.Cmp(uint256.NewInt()) > 0 {
 			// have transferred non-zero values
-			o.reports = append(o.reports, Report{
-				Address:     o.currentCall.Callee(),
-				PC:          pc,
-				Transaction: o.currentTx.Hash(),
-				VulType:     TIMESTAMP_DEPENDENCY,
-				Description: fmt.Sprintf("timestamp dependency found at contract %s, function %s, CALL opcode at %d", o.currentCall.Callee().Hex(), o.currentCall.Function().Sig(), pc),
+			o.reports = append(o.reports, &rpc.ContractVulReport{
+				Address:     o.currentCall.Callee().Hex(),
+				FuncSig:     o.currentCall.Function().Sig().Hex(),
+				Pc:          pc,
+				Opcode:      op.Hex(),
+				TxHash:      o.currentTx.Hash().Hex(),
+				Type:        o.Type(),
+				Description: fmt.Sprintf("timestamp dependency found at contract %s, function %s, CALL opcode at %d", o.currentCall.Callee().Hex(), o.currentCall.Function().Sig().Hex(), pc),
 			})
 		}
 	}
@@ -333,23 +319,23 @@ func (o *TimestampDependencyOracle) AfterTransaction(tx *types.Transaction, rece
 	o.currentTx = nil
 }
 
-func (o *TimestampDependencyOracle) Report() []Report {
+func (o *TimestampDependencyOracle) Reports() []*rpc.ContractVulReport {
 	return o.reports
 }
 
 type BlockNumberDependencyOracle struct {
-	reports        []Report
+	reports        []*rpc.ContractVulReport
 	currentTx      *types.Transaction
 	currentCall    MessageCall
 	useBlockNumber bool
 }
 
 func NewBlockNumberDependencyOracle() *BlockNumberDependencyOracle {
-	return &BlockNumberDependencyOracle{reports: make([]Report, 0)}
+	return &BlockNumberDependencyOracle{reports: make([]*rpc.ContractVulReport, 0)}
 }
 
-func (o *BlockNumberDependencyOracle) Type() VulnerabilityType {
-	return BLOCKNUMBER_DEPENDENCY
+func (o *BlockNumberDependencyOracle) Type() rpc.ContractVulType {
+	return rpc.ContractVulType_BLOCKNUMBER_DEPENDENCY
 }
 
 func (o *BlockNumberDependencyOracle) BeforeTransaction(tx *types.Transaction) {
@@ -368,12 +354,14 @@ func (o *BlockNumberDependencyOracle) BeforeOperation(op OpCode, operation opera
 		value := ctx.stack.Back(2)
 		if value.Cmp(uint256.NewInt()) > 0 {
 			// have transferred non-zero values
-			o.reports = append(o.reports, Report{
-				Address:     o.currentCall.Callee(),
-				PC:          pc,
-				Transaction: o.currentTx.Hash(),
-				VulType:     BLOCKNUMBER_DEPENDENCY,
-				Description: fmt.Sprintf("blockNumber dependency found at contract %s, function %s, CALL opcode at %d", o.currentCall.Callee().Hex(), o.currentCall.Function().Sig(), pc),
+			o.reports = append(o.reports, &rpc.ContractVulReport{
+				Address:     o.currentCall.Callee().Hex(),
+				FuncSig:     o.currentCall.Function().Sig().Hex(),
+				Opcode:      op.Hex(),
+				Pc:          pc,
+				TxHash:      o.currentTx.Hash().Hex(),
+				Type:        o.Type(),
+				Description: fmt.Sprintf("blockNumber dependency found at contract %s, function %s, CALL opcode at %d", o.currentCall.Callee().Hex(), o.currentCall.Function().Sig().Hex(), pc),
 			})
 		}
 	}
@@ -392,12 +380,12 @@ func (o *BlockNumberDependencyOracle) AfterTransaction(tx *types.Transaction, re
 	o.currentTx = nil
 }
 
-func (o *BlockNumberDependencyOracle) Report() []Report {
+func (o *BlockNumberDependencyOracle) Reports() []*rpc.ContractVulReport {
 	return o.reports
 }
 
 type DangerousDelegateCallOracle struct {
-	reports          []Report
+	reports          []*rpc.ContractVulReport
 	currentTx        *types.Transaction
 	currentCall      MessageCall
 	callDataTrackers []*TaintTracker
@@ -405,13 +393,13 @@ type DangerousDelegateCallOracle struct {
 
 func NewDangerousDelegateCallOracle() *DangerousDelegateCallOracle {
 	return &DangerousDelegateCallOracle{
-		reports:          make([]Report, 0),
+		reports:          make([]*rpc.ContractVulReport, 0),
 		callDataTrackers: make([]*TaintTracker, 0),
 	}
 }
 
-func (o *DangerousDelegateCallOracle) Type() VulnerabilityType {
-	return DANGEROUS_DELEGATECALL
+func (o *DangerousDelegateCallOracle) Type() rpc.ContractVulType {
+	return rpc.ContractVulType_DANGEROUS_DELEGATECALL
 }
 
 func (o *DangerousDelegateCallOracle) BeforeTransaction(tx *types.Transaction) {
@@ -436,12 +424,14 @@ func (o *DangerousDelegateCallOracle) BeforeOperation(op OpCode, operation opera
 		for _, tracker := range o.callDataTrackers {
 			// stack depth 1 is the address of delegate call code
 			if tracker.IsStackTainted(1) || tracker.IsMemoryTainted(inOffset, inSize) {
-				o.reports = append(o.reports, Report{
-					Address:     o.currentCall.Callee(),
-					PC:          pc,
-					Transaction: o.currentTx.Hash(),
-					VulType:     DANGEROUS_DELEGATECALL,
-					Description: fmt.Sprintf("dangerous delegate call at contract %s, function %s, DELEGATECALL at %d", o.currentCall.Callee().Hex(), o.currentCall.Function().Sig(), pc),
+				o.reports = append(o.reports, &rpc.ContractVulReport{
+					Address:     o.currentCall.Callee().Hex(),
+					FuncSig:     o.currentCall.Function().Sig().Hex(),
+					Opcode:      op.Hex(),
+					Pc:          pc,
+					TxHash:      o.currentTx.Hash().Hex(),
+					Type:        o.Type(),
+					Description: fmt.Sprintf("dangerous delegate call at contract %s, function %s, DELEGATECALL at %d", o.currentCall.Callee().Hex(), o.currentCall.Function().Sig().Hex(), pc),
 				})
 			}
 		}
@@ -465,6 +455,6 @@ func (o *DangerousDelegateCallOracle) AfterTransaction(tx *types.Transaction, re
 	o.currentTx = nil
 }
 
-func (o *DangerousDelegateCallOracle) Report() []Report {
+func (o *DangerousDelegateCallOracle) Reports() []*rpc.ContractVulReport {
 	return o.reports
 }

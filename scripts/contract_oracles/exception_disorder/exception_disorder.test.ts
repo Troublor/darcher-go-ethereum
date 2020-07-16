@@ -1,6 +1,7 @@
 import {expect} from "chai";
 import * as path from "path";
 import * as shell from "shelljs";
+import {ContractVulType} from "@darcher/rpc";
 
 describe("exception disorder oracle", () => {
     it('should pass test case 1', async function () {
@@ -20,9 +21,9 @@ describe("exception disorder oracle", () => {
         shell.exec(`${cmd}`)
         let results = await import(resultFile);
         expect(results).to.be.lengthOf(2);
-        expect(results[0].type).to.be.equal("gasless_send");
-        expect(results[0].transaction).to.be.equal("0xfdf97294b132e59f1c4385004d9a9fa2eab857c04ce440e8db701b8fbae41323");
-        expect(results[1].type).to.be.equal("exception_disorder");
-        expect(results[1].transaction).to.be.equal("0xfdf97294b132e59f1c4385004d9a9fa2eab857c04ce440e8db701b8fbae41323");
+        expect(results[0].type).to.be.equal(ContractVulType.GASLESS_SEND);
+        expect(results[0].tx_hash).to.be.equal("0xfdf97294b132e59f1c4385004d9a9fa2eab857c04ce440e8db701b8fbae41323");
+        expect(results[1].type).to.be.equal(ContractVulType.EXCEPTION_DISORDER);
+        expect(results[1].tx_hash).to.be.equal("0xfdf97294b132e59f1c4385004d9a9fa2eab857c04ce440e8db701b8fbae41323");
     });
 })

@@ -1,6 +1,7 @@
 import * as shell from "shelljs";
 import * as path from "path";
 import {expect} from "chai";
+import {ContractVulType} from "@darcher/rpc";
 
 describe("reentrancy oracle", () => {
     it('should pass test case 1', async function () {
@@ -20,7 +21,7 @@ describe("reentrancy oracle", () => {
         shell.exec(`${cmd}`)
         let results = await import(resultFile);
         expect(results).to.be.lengthOf(1);
-        expect(results[0].type).to.be.equal("reentrancy");
-        expect(results[0].transaction).to.be.equal("0xdf93fdb7502a71fbe17eebdfdfd2aaf3b4aeb31cd194a30704419866ec295db7");
+        expect(results[0].type).to.be.equal(ContractVulType.REENTRANCY);
+        expect(results[0].tx_hash).to.be.equal("0xdf93fdb7502a71fbe17eebdfdfd2aaf3b4aeb31cd194a30704419866ec295db7");
     });
 });

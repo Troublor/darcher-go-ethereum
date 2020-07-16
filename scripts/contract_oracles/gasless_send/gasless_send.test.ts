@@ -1,6 +1,7 @@
 import * as shell from "shelljs";
 import * as path from "path";
 import {expect} from "chai";
+import {ContractVulType} from "@darcher/rpc";
 
 describe("gasless send oracle", () => {
     it('should pass test case 1', async function () {
@@ -20,6 +21,7 @@ describe("gasless send oracle", () => {
         shell.exec(`${cmd}`)
         let results = await import(resultFile);
         expect(results).to.be.lengthOf(1);
-        expect(results[0].transaction).to.be.equal("0x6ab4c697fea1e6eedbc67c7ae5b654c0c793c5ee2e1cfa84e8a8396503351c91");
+        expect(results[0].type).to.be.equal(ContractVulType.GASLESS_SEND);
+        expect(results[0].tx_hash).to.be.equal("0x6ab4c697fea1e6eedbc67c7ae5b654c0c793c5ee2e1cfa84e8a8396503351c91");
     });
 });

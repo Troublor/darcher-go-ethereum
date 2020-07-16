@@ -58,6 +58,14 @@ type EthMonitorClient struct {
 	mineTxControlMutex              sync.Mutex
 	checkTxInPoolControl            rpc.MiningService_CheckTxInPoolControlClient
 	checkTxInPoolControlMutex       sync.Mutex
+
+	/* contract oracle service */
+	contractOracleService rpc.ContractVulnerabilityServiceClient
+	// reverse RPCs
+	getReportsByContractControl         rpc.ContractVulnerabilityService_GetReportsByContractControlClient
+	getReportsByContractControlMutex    sync.Mutex
+	getReportsByTransactionControl      rpc.ContractVulnerabilityService_GetReportsByTransactionControlClient
+	getReportsByTransactionControlMutex sync.Mutex
 }
 
 func NewClient(role rpc.Role, eth Ethereum, ctx context.Context, masterAddr string) *EthMonitorClient {
@@ -299,7 +307,7 @@ func (c *EthMonitorClient) ServeAddPeerControl(handler func(in *rpc.AddPeerContr
 				in, err = c.addPeerControl.Recv()
 			}
 			if err == context.Canceled {
-				log.Info("RemovePeer reverse rpc closed", "err", err)
+				log.Info("AddPeer reverse rpc closed", "err", err)
 				return
 			}
 			if err != nil {
@@ -423,7 +431,7 @@ func (c *EthMonitorClient) ServeGetHeadControl(handler func(in *rpc.GetChainHead
 				in, err = c.getHeadControl.Recv()
 			}
 			if err == context.Canceled {
-				log.Info("RemovePeer reverse rpc closed", "err", err)
+				log.Info("GetHead reverse rpc closed", "err", err)
 				return
 			}
 			if err != nil {
@@ -483,7 +491,7 @@ func (c *EthMonitorClient) ServeScheduleTxControl(handler func(in *rpc.ScheduleT
 				in, err = c.scheduleTxControl.Recv()
 			}
 			if err == context.Canceled {
-				log.Info("RemovePeer reverse rpc closed", "err", err)
+				log.Info("ScheduleTx reverse rpc closed", "err", err)
 				return
 			}
 			if err != nil {
@@ -543,7 +551,7 @@ func (c *EthMonitorClient) ServeMineBlocksControl(handler func(in *rpc.MineBlock
 				in, err = c.mineBlocksControl.Recv()
 			}
 			if err == context.Canceled {
-				log.Info("RemovePeer reverse rpc closed", "err", err)
+				log.Info("MineBlocks reverse rpc closed", "err", err)
 				return
 			}
 			if err != nil {
@@ -603,7 +611,7 @@ func (c *EthMonitorClient) ServeMineBlocksExceptTxControl(handler func(in *rpc.M
 				in, err = c.mineBlocksExceptTxControl.Recv()
 			}
 			if err == context.Canceled {
-				log.Info("RemovePeer reverse rpc closed", "err", err)
+				log.Info("MineBlocksExceptTx reverse rpc closed", "err", err)
 				return
 			}
 			if err != nil {
@@ -663,7 +671,7 @@ func (c *EthMonitorClient) ServeMineBlocksWithoutTxControl(handler func(in *rpc.
 				in, err = c.mineBlocksWithoutTxControl.Recv()
 			}
 			if err == context.Canceled {
-				log.Info("RemovePeer reverse rpc closed", "err", err)
+				log.Info("MineBlocksWithoutTx reverse rpc closed", "err", err)
 				return
 			}
 			if err != nil {
@@ -723,7 +731,7 @@ func (c *EthMonitorClient) ServeMineTdControl(handler func(in *rpc.MineTdControl
 				in, err = c.mineTdControl.Recv()
 			}
 			if err == context.Canceled {
-				log.Info("RemovePeer reverse rpc closed", "err", err)
+				log.Info("MineTd reverse rpc closed", "err", err)
 				return
 			}
 			if err != nil {
@@ -783,7 +791,7 @@ func (c *EthMonitorClient) ServeMineTxControl(handler func(in *rpc.MineTxControl
 				in, err = c.mineTxControl.Recv()
 			}
 			if err == context.Canceled {
-				log.Info("RemovePeer reverse rpc closed", "err", err)
+				log.Info("MineTx reverse rpc closed", "err", err)
 				return
 			}
 			if err != nil {
@@ -843,7 +851,7 @@ func (c *EthMonitorClient) ServeCheckTxInPoolControl(handler func(in *rpc.CheckT
 				in, err = c.checkTxInPoolControl.Recv()
 			}
 			if err == context.Canceled {
-				log.Info("RemovePeer reverse rpc closed", "err", err)
+				log.Info("CheckTxInPool reverse rpc closed", "err", err)
 				return
 			}
 			if err != nil {
@@ -857,6 +865,126 @@ func (c *EthMonitorClient) ServeCheckTxInPoolControl(handler func(in *rpc.CheckT
 				c.checkTxInPoolControlMutex.Unlock()
 				if err != nil {
 					log.Error("CheckTxInPool reverse rpc failed to reply", "err", err)
+					return
+				}
+			}()
+		}
+	}()
+	return nil
+}
+
+/**
+Serve GetReportsByContract reverse rpc
+This is a synchronized method (will block) and should only be called once
+*/
+func (c *EthMonitorClient) ServeGetReportsByContractControl(handler func(in *rpc.GetReportsByContractControlMsg) (out *rpc.GetReportsByContractControlMsg)) error {
+	var err error
+	c.getReportsByContractControl, err = c.contractOracleService.GetReportsByContractControl(c.ctx)
+	if err != nil {
+		return err
+	}
+	// send init message to register reverse rpc
+	_ = c.getReportsByContractControl.Send(&rpc.GetReportsByContractControlMsg{
+		Role: c.role,
+	})
+	go func() {
+		for {
+			select {
+			case <-c.ctx.Done():
+				c.getReportsByContractControlMutex.Lock()
+				_ = c.getReportsByContractControl.CloseSend()
+				c.getReportsByContractControlMutex.Unlock()
+				return
+			default:
+			}
+			in, err := c.getReportsByContractControl.Recv()
+			for err == io.EOF {
+				// reverse rpc stream closed, try to reconnect
+				log.Warn("GetReportsByContract reverse rpc closed, retrying")
+				c.getReportsByContractControlMutex.Lock()
+				c.getReportsByContractControl, err = c.contractOracleService.GetReportsByContractControl(c.ctx)
+				c.getReportsByContractControlMutex.Unlock()
+				if err != nil {
+					log.Error("GetReportsByContract reverse rpc reconnect error", "err", err)
+					return
+				}
+				in, err = c.getReportsByContractControl.Recv()
+			}
+			if err == context.Canceled {
+				log.Info("GetReportsByContract reverse rpc closed", "err", err)
+				return
+			}
+			if err != nil {
+				log.Error("GetReportsByContract reverse rpc receive data error", "err", err)
+				return
+			}
+			go func() {
+				out := handler(in)
+				c.getReportsByContractControlMutex.Lock()
+				err = c.getReportsByContractControl.Send(out)
+				c.getReportsByContractControlMutex.Unlock()
+				if err != nil {
+					log.Error("GetReportsByContract reverse rpc failed to reply", "err", err)
+					return
+				}
+			}()
+		}
+	}()
+	return nil
+}
+
+/**
+Serve GetReportsByTransaction reverse rpc
+This is a synchronized method (will block) and should only be called once
+*/
+func (c *EthMonitorClient) ServeGetReportsByTransactionControl(handler func(in *rpc.GetReportsByTransactionControlMsg) (out *rpc.GetReportsByTransactionControlMsg)) error {
+	var err error
+	c.getReportsByTransactionControl, err = c.contractOracleService.GetReportsByTransactionControl(c.ctx)
+	if err != nil {
+		return err
+	}
+	// send init message to register reverse rpc
+	_ = c.getReportsByTransactionControl.Send(&rpc.GetReportsByTransactionControlMsg{
+		Role: c.role,
+	})
+	go func() {
+		for {
+			select {
+			case <-c.ctx.Done():
+				c.getReportsByTransactionControlMutex.Lock()
+				_ = c.getReportsByTransactionControl.CloseSend()
+				c.getReportsByTransactionControlMutex.Unlock()
+				return
+			default:
+			}
+			in, err := c.getReportsByTransactionControl.Recv()
+			for err == io.EOF {
+				// reverse rpc stream closed, try to reconnect
+				log.Warn("GetReportsByTransaction reverse rpc closed, retrying")
+				c.getReportsByTransactionControlMutex.Lock()
+				c.getReportsByTransactionControl, err = c.contractOracleService.GetReportsByTransactionControl(c.ctx)
+				c.getReportsByTransactionControlMutex.Unlock()
+				if err != nil {
+					log.Error("GetReportsByTransaction reverse rpc reconnect error", "err", err)
+					return
+				}
+				in, err = c.getReportsByTransactionControl.Recv()
+			}
+			if err == context.Canceled {
+				log.Info("GetReportsByTransaction reverse rpc closed", "err", err)
+				return
+			}
+			if err != nil {
+				log.Error("GetReportsByTransaction reverse rpc receive data error", "err", err)
+				return
+			}
+			go func() {
+				out := handler(in)
+				c.getReportsByTransactionControlMutex.Lock()
+				err = c.getReportsByTransactionControl.Send(out)
+				c.getReportsByTransactionControlMutex.Unlock()
+				if err != nil {
+					log.Error("GetReportsByTransaction reverse rpc failed to reply", "err", err)
 					return
 				}
 			}()

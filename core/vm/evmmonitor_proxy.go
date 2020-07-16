@@ -1,9 +1,14 @@
 package vm
 
 import (
+	"encoding/json"
+	"fmt"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethmonitor/rpc"
 	"github.com/ethereum/go-ethereum/log"
+	"io/ioutil"
 	"math/big"
+	"strings"
 )
 
 var proxy = &EVMMonitorProxy{}
@@ -29,10 +34,6 @@ func EnableEVMAnalyzer() {
 
 func (p *EVMMonitorProxy) analyzerEnabled() bool {
 	return p.analyzer != nil
-}
-
-func (p *EVMMonitorProxy) Analyzer() *Analyzer {
-	return p.analyzer
 }
 
 /**
@@ -87,4 +88,24 @@ func (p *EVMMonitorProxy) AfterTransaction(tx *types.Transaction, receipt *types
 		return
 	}
 	p.analyzer.AfterTransaction(tx, receipt)
+}
+
+func (p *EVMMonitorProxy) Reports() []*rpc.ContractVulReport {
+	if !p.analyzerEnabled() {
+		return make([]*rpc.ContractVulReport, 0)
+	}
+	return p.analyzer.Reports()
+}
+
+func (p *EVMMonitorProxy) ReportsToFile(outputFile string) {
+	reports := p.Reports()
+	data, _ := json.MarshalIndent(reports, "", "  ")
+	if strings.ToLower(outputFile) == "stdout" {
+		fmt.Println(string(data))
+	} else {
+		err := ioutil.WriteFile(outputFile, data, 0644)
+		if err != nil {
+			log.Error("Output contract oracle report failed", "err", err)
+		}
+	}
 }

@@ -1,6 +1,8 @@
 import * as shell from "shelljs";
 import * as path from "path";
 import {expect} from "chai";
+import {$enum} from "ts-enum-util";
+import {ContractVulType} from "@darcher/rpc";
 
 describe("blockNumber dependency oracle", () => {
     it('should pass test case 1', async function () {
@@ -20,7 +22,7 @@ describe("blockNumber dependency oracle", () => {
         shell.exec(`${cmd}`)
         let results = await import(resultFile);
         expect(results).to.be.lengthOf(1);
-        expect(results[0].type).to.be.equal("blockNumber_dependency");
-        expect(results[0].transaction).to.be.equal("0x47814c716100ce8bc741cb8f353740a754c7aecf52a70fc30c0a74d41a973f59");
+        expect(results[0].type).to.be.equal(ContractVulType.BLOCKNUMBER_DEPENDENCY);
+        expect(results[0].tx_hash).to.be.equal("0x47814c716100ce8bc741cb8f353740a754c7aecf52a70fc30c0a74d41a973f59");
     });
 });

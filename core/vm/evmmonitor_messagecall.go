@@ -18,8 +18,21 @@ const (
 
 type FuncSig [4]byte
 
-func (s FuncSig) String() string {
-	return hex.EncodeToString(s[:])
+var (
+	FallbackSig    = [4]byte{0, 0, 0, 0}
+	ConstructorSig = [4]byte{0, 0, 0, 1}
+)
+
+func (s FuncSig) Hex() string {
+	return "0x" + hex.EncodeToString(s[:])
+}
+
+func (s FuncSig) Bytes() []byte {
+	return s[:]
+}
+
+func (op OpCode) Hex() string {
+	return "0x" + hex.EncodeToString([]byte{byte(op)})
 }
 
 type Function struct {
@@ -90,7 +103,7 @@ func (c *Call) Function() Function {
 	var sig FuncSig
 	if len(c.Input()) < 4 {
 		// special fallback function
-		sig = [4]byte{0, 0, 0, 0}
+		sig = FallbackSig
 	} else {
 		copy(sig[:], c.Input()[:4])
 	}
@@ -159,6 +172,6 @@ func (c *Create) Function() Function {
 	// special constructor function
 	return Function{
 		addr: c.Callee(),
-		sig:  [4]byte{0, 0, 0, 1},
+		sig:  ConstructorSig,
 	}
 }

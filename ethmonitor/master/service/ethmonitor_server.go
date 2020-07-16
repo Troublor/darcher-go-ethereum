@@ -14,6 +14,7 @@ type EthMonitorServer struct {
 	blockchainStatusService *BlockchainStatusService
 	p2pNetworkService       *P2PNetworkService
 	miningService           *MiningService
+	contractOracleService   *ContractOracleService
 }
 
 func NewServer(port int) *EthMonitorServer {
@@ -30,9 +31,11 @@ func (s *EthMonitorServer) Start() {
 	s.blockchainStatusService = NewBlockchainStatusService()
 	s.p2pNetworkService = NewP2PNetworkService()
 	s.miningService = NewMiningService()
+	s.contractOracleService = NewContractOracleService()
 	rpc.RegisterBlockchainStatusServiceServer(grpcServer, s.blockchainStatusService)
 	rpc.RegisterP2PNetworkServiceServer(grpcServer, s.p2pNetworkService)
 	rpc.RegisterMiningServiceServer(grpcServer, s.miningService)
+	rpc.RegisterContractVulnerabilityServiceServer(grpcServer, s.contractOracleService)
 	go func() {
 		err := grpcServer.Serve(lis)
 		if err != nil {
@@ -51,4 +54,8 @@ func (s *EthMonitorServer) P2PNetworkService() *P2PNetworkService {
 
 func (s *EthMonitorServer) MiningService() *MiningService {
 	return s.miningService
+}
+
+func (s *EthMonitorServer) ContractOracleService() *ContractOracleService {
+	return s.contractOracleService
 }

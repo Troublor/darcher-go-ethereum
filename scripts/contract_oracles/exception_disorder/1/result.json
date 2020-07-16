@@ -1,16 +1,16 @@
 [
   {
-    "address": "0x71d9a9ecdb6a30f7c6c363bdaf530d5f32cbdec4",
+    "address": "0x71d9a9eCdb6a30F7c6C363BdaF530d5F32cBdeC4",
+    "func_sig": "0x00000000",
     "pc": 52,
-    "transaction": "0xfdf97294b132e59f1c4385004d9a9fa2eab857c04ce440e8db701b8fbae41323",
-    "type": "gasless_send",
+    "tx_hash": "0xfdf97294b132e59f1c4385004d9a9fa2eab857c04ce440e8db701b8fbae41323",
+    "type": 6,
     "description": "gasless send at 52"
   },
   {
-    "address": "0x9ff7911f83422189b0d353eae5285f8d999ca0d5",
-    "pc": 0,
-    "transaction": "0xfdf97294b132e59f1c4385004d9a9fa2eab857c04ce440e8db701b8fbae41323",
-    "type": "exception_disorder",
+    "address": "0x9fF7911f83422189b0D353eaE5285F8D999ca0D5",
+    "tx_hash": "0xfdf97294b132e59f1c4385004d9a9fa2eab857c04ce440e8db701b8fbae41323",
+    "type": 1,
     "description": "exception disorder"
   }
 ]

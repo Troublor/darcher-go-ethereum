@@ -206,7 +206,7 @@ func Main(ctx *cli.Context) error {
 	// TODO troublor modify starts
 	if ctx.Bool(EVMAnalyzer.Name) {
 		outputFile := ctx.String(EVMAnalyzerReport.Name)
-		vm.GetEVMMonitorProxy().Analyzer().Report(outputFile)
+		vm.GetEVMMonitorProxy().ReportsToFile(outputFile)
 	}
 	// troublor modify ends
 

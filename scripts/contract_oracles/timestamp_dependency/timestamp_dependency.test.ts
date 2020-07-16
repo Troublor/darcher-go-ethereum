@@ -1,6 +1,7 @@
 import * as shell from "shelljs";
 import * as path from "path";
 import {expect} from "chai";
+import {ContractVulType} from "@darcher/rpc";
 
 describe("timestamp dependency oracle", () => {
     it('should pass test case 1', async function () {
@@ -20,7 +21,7 @@ describe("timestamp dependency oracle", () => {
         shell.exec(`${cmd}`)
         let results = await import(resultFile);
         expect(results).to.be.lengthOf(1);
-        expect(results[0].type).to.be.equal("timestamp_dependency");
-        expect(results[0].transaction).to.be.equal("0x3adc9726a48fda487eb84e6389bf5674aa8707c906105040faa637ce5924d964");
+        expect(results[0].type).to.be.equal(ContractVulType.TIMESTAMP_DEPENDENCY);
+        expect(results[0].tx_hash).to.be.equal("0x3adc9726a48fda487eb84e6389bf5674aa8707c906105040faa637ce5924d964");
     });
 });

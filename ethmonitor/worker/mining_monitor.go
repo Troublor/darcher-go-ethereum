@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/ethmonitor/rpc"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
@@ -199,6 +200,18 @@ func (m *MiningMonitor) startReverseRPCs() error {
 		return err
 	}
 	log.Info("CheckTxInPool reverse RPC started")
+	err = m.client.ServeGetReportsByContractControl(m.getReportsByContractHandler)
+	if err != nil {
+		log.Error("Serve GerReportsByContract reverse RPC error", "err", err)
+		return err
+	}
+	log.Info("GerReportsByContract reverse RPC started")
+	err = m.client.ServeGetReportsByTransactionControl(m.getReportsByTransactionHandler)
+	if err != nil {
+		log.Error("Serve GetReportsByTransaction reverse RPC error", "err", err)
+		return err
+	}
+	log.Info("GetReportsByTransaction reverse RPC started")
 	return nil
 }
 
@@ -419,6 +432,30 @@ func (m *MiningMonitor) checkTxInPoolControlHandler(in *rpc.CheckTxInPoolControl
 	out = in
 	out.InPool = m.eth.TxPool().Get(common.HexToHash(in.GetHash())) != nil
 	out.Err = rpc.Error_NilErr
+	return out
+}
+
+func (m *MiningMonitor) getReportsByContractHandler(in *rpc.GetReportsByContractControlMsg) (out *rpc.GetReportsByContractControlMsg) {
+	out = in
+	reports := vm.GetEVMMonitorProxy().Reports()
+	out.Reports = make([]*rpc.ContractVulReport, 0)
+	for _, report := range reports {
+		if report.GetAddress() == in.GetAddress() {
+			out.Reports = append(out.Reports, report)
+		}
+	}
+	return out
+}
+
+func (m *MiningMonitor) getReportsByTransactionHandler(in *rpc.GetReportsByTransactionControlMsg) (out *rpc.GetReportsByTransactionControlMsg) {
+	out = in
+	reports := vm.GetEVMMonitorProxy().Reports()
+	out.Reports = make([]*rpc.ContractVulReport, 0)
+	for _, report := range reports {
+		if report.GetTxHash() == in.GetHash() {
+			out.Reports = append(out.Reports, report)
+		}
+	}
 	return out
 }
 

@@ -1,13 +1,9 @@
 package vm
 
 import (
-	"encoding/json"
-	"fmt"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
-	"io/ioutil"
+	"github.com/ethereum/go-ethereum/ethmonitor/rpc"
 	"math/big"
-	"strings"
 )
 
 /**
@@ -124,18 +120,10 @@ func (a *Analyzer) AfterTransaction(tx *types.Transaction, receipt *types.Receip
 	}
 }
 
-func (a *Analyzer) Report(outputFile string) {
-	reports := make([]Report, 0)
+func (a *Analyzer) Reports() []*rpc.ContractVulReport {
+	reports := make([]*rpc.ContractVulReport, 0)
 	for _, oracle := range a.oracles {
-		reports = append(reports, oracle.Report()...)
+		reports = append(reports, oracle.Reports()...)
 	}
-	data, _ := json.MarshalIndent(reports, "", "  ")
-	if strings.ToLower(outputFile) == "stdout" {
-		fmt.Println(string(data))
-	} else {
-		err := ioutil.WriteFile(outputFile, data, 0644)
-		if err != nil {
-			log.Error("Output contract oracle report failed", "err", err)
-		}
-	}
+	return reports
 }

@@ -1,6 +1,8 @@
 import * as shell from "shelljs";
 import * as path from "path";
 import {expect} from "chai";
+import {$enum} from "ts-enum-util";
+import {ContractVulType} from "@darcher/rpc";
 
 describe("dangerous delegatecall oracle", () => {
     it('should pass test case 1', async function () {
@@ -20,7 +22,7 @@ describe("dangerous delegatecall oracle", () => {
         shell.exec(`${cmd}`)
         let results = await import(resultFile);
         expect(results).to.be.lengthOf(1);
-        expect(results[0].type).to.be.equal("dangerous_delegatecall");
-        expect(results[0].transaction).to.be.equal("0x104fafac77652bc7bf6be189d8be4da9dbfd218328998b96c850ad1104e4084a");
+        expect(results[0].type).to.be.equal(ContractVulType.DANGEROUS_DELEGATECALL);
+        expect(results[0].tx_hash).to.be.equal("0x104fafac77652bc7bf6be189d8be4da9dbfd218328998b96c850ad1104e4084a");
     });
 });
