@@ -10,7 +10,7 @@ jobs:
 
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     strategy:
       matrix:
         node-version: [10.x]
@@ -32,13 +32,17 @@ jobs:
             curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
             dep ensure
         fi
-    - name: Install Node.js dependencies
-      run: npm install
-
+        
     # go test
     # only test ethmonitor, miner, vm
     - name: Test
       run: go test -v ./ethmonitor/... ./miner/... ./core/vm/...
+      
+      
+    - name: Yarn CLI
+      uses: CultureHQ/actions-yarn@v1.22.4
+    - name: Install Node.js dependencies
+      run: yarn
     
     # node.js test
     - uses: actions/checkout@v2
@@ -46,7 +50,7 @@ jobs:
       uses: actions/setup-node@v1
       with:
         node-version: ${{ matrix.node-version }}
-    - run: npm test
+    - run: yarn test
    
 
 
