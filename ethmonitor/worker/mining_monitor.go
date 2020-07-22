@@ -252,7 +252,7 @@ func (m *MiningMonitor) addPeerControlHandler(in *rpc.AddPeerControlMsg) (out *r
 		return out
 	}
 
-	// short circuit if peer is already removed
+	// short circuit if peer is already added
 	for _, peerInfo := range m.node.Server().PeersInfo() {
 		if peerInfo.ID == eNode.ID().String() {
 			out.Err = rpc.Error_NilErr
@@ -296,11 +296,15 @@ func (m *MiningMonitor) removePeerControlHandler(in *rpc.RemovePeerControlMsg) (
 	}
 
 	// short circuit if peer is already removed
+	removed := true
 	for _, peerInfo := range m.node.Server().PeersInfo() {
 		if peerInfo.ID == eNode.ID().String() {
-			out.Err = rpc.Error_NilErr
-			return out
+			removed = false
 		}
+	}
+	if removed {
+		out.Err = rpc.Error_NilErr
+		return out
 	}
 
 	// add peer with enode
