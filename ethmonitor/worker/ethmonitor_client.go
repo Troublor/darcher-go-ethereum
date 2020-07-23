@@ -78,6 +78,7 @@ func NewClient(role rpc.Role, eth Ethereum, ctx context.Context, masterAddr stri
 	blockchainStatusService := rpc.NewBlockchainStatusServiceClient(conn)
 	p2pNetworkService := rpc.NewP2PNetworkServiceClient(conn)
 	miningService := rpc.NewMiningServiceClient(conn)
+	contractOracleService := rpc.NewContractVulnerabilityServiceClient(conn)
 
 	c := &EthMonitorClient{
 		role:       role,
@@ -89,6 +90,7 @@ func NewClient(role rpc.Role, eth Ethereum, ctx context.Context, masterAddr stri
 		blockchainStatusService: blockchainStatusService,
 		p2pNetworkService:       p2pNetworkService,
 		miningService:           miningService,
+		contractOracleService:   contractOracleService,
 	}
 	return c
 }
