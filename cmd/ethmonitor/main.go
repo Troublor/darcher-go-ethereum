@@ -14,11 +14,11 @@ import (
 
 var (
 	Port = &cli.IntFlag{
-		Name:  "port",
+		Name:  "ethmonitor.port",
 		Value: 0,
 	}
 	Controller = &cli.StringFlag{
-		Name:  "controller",
+		Name:  "ethmonitor.controller",
 		Value: "trivial",
 	}
 	VerbosityFlag = cli.IntFlag{
@@ -27,7 +27,7 @@ var (
 		Value: 3,
 	}
 	DarcherPort = &cli.IntFlag{
-		Name:  "darcherPort",
+		Name:  "analyzer.port",
 		Value: 0,
 	}
 )

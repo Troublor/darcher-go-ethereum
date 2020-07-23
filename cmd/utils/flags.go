@@ -141,15 +141,15 @@ func printHelp(out io.Writer, templ string, data interface{}) {
 var (
 	// TODO troubmor modify starts
 	EVMAnalyer = cli.BoolFlag{
-		Name:  "analyze",
+		Name:  "evm.analyze",
 		Usage: "enable evm analyzer",
 	}
 	TalkerFlag = cli.BoolFlag{
-		Name:  "talker",
+		Name:  "ethmonitor.talker",
 		Usage: "run as talker node",
 	}
 	MonitorPort = cli.IntFlag{
-		Name:  "monitorport",
+		Name:  "ethmonitor.port",
 		Usage: "the port of ethMonitor server",
 		Value: 0,
 	}
