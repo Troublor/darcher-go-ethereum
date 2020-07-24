@@ -1,0 +1,30 @@
+# Pull Geth into a second stage deploy alpine container
+ARG ethmonitor_port
+ARG genesis
+ARG http_port
+ARG ws_port
+ARG graphql_port
+FROM alpine:latest
+
+ARG ethmonitor_port
+ARG genesis
+ARG http_port
+ARG ws_port
+ARG graphql_port
+
+ENV e_port=$ethmonitor_port
+ENV g=$genesis
+ENV h_port=$http_port
+ENV w_port=$ws_port
+ENV g_port=$graphql_port
+
+RUN apk add --no-cache ca-certificates
+COPY --from=darcher/go-ethereum/executables /darcher-go-ethereum/build/bin/geth /usr/local/bin/
+
+RUN mkdir /blockchain
+COPY $g /blockchain/genesis.json
+
+RUN geth --datadir /blockchain init /blockchain/genesis.json
+
+EXPOSE $e_port $h_port $w_port $g_port
+ENTRYPOINT geth --datadir /blockchain
