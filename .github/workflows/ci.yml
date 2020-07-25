@@ -37,20 +37,7 @@ jobs:
     # only test ethmonitor, miner, vm
     - name: Test
       run: go test -v ./ethmonitor/... ./miner/... ./core/vm/...
-    
-    - name: GitHub Action for Yarn
-      uses: Borales/actions-yarn@v2.3.0
-      
-    - name: Install Node.js dependencies
-      run: yarn
-    
-    # node.js test
-#    - uses: actions/checkout@v2
-#    - name: Use Node.js ${{ matrix.node-version }}
-#      uses: actions/setup-node@v1
-#      with:
-#        node-version: ${{ matrix.node-version }}
-    - run: yarn test
+
    
 
 
