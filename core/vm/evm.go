@@ -241,19 +241,6 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		}(gas, time.Now())
 	}
 
-	// TODO troublor modify starts: evmmonitor proxy
-	if evm.analyzer != nil {
-		evm.analyzer.BeforeMessageCall(
-			TYPE_CALL,
-			caller,
-			to,
-			input,
-			gas,
-			value,
-		)
-	}
-	// troublor modify ends
-
 	if isPrecompile {
 		ret, gas, err = RunPrecompiledContract(p, input, gas)
 	} else {
@@ -268,21 +255,35 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			// The depth-check is already done, and precompiles handled above
 			contract := NewContract(caller, AccountRef(addrCopy), value, gas)
 			contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), code)
+
+			// TODO troublor modify starts: evmmonitor proxy
+			if evm.analyzer != nil {
+				evm.analyzer.BeforeMessageCall(
+					TYPE_CALL,
+					caller,
+					contract.self,
+					input,
+					gas,
+					value,
+				)
+			}
+			// troublor modify ends
+
 			ret, err = run(evm, contract, input, false)
+
+			// TODO troublor modify starts: evmmonitor proxy
+			if evm.analyzer != nil {
+				evm.analyzer.AfterMessageCall(
+					TYPE_CALL,
+					ret,
+					err,
+				)
+			}
+			// troublor modify ends
+
 			gas = contract.Gas
 		}
 	}
-
-	// TODO troublor modify starts: evmmonitor proxy
-	if evm.analyzer != nil {
-		evm.analyzer.AfterMessageCall(
-			TYPE_CALL,
-			ret,
-			err,
-		)
-	}
-	// troublor modify ends
-
 
 	// When an error was returned by the EVM or when setting the creation code
 	// above we revert to the snapshot and consume any gas remaining. Additionally
@@ -323,19 +324,6 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 	}
 	var snapshot = evm.StateDB.Snapshot()
 
-	// TODO troublor modify starts: evmmonitor proxy
-	if evm.analyzer != nil {
-		evm.analyzer.BeforeMessageCall(
-			TYPE_CALLCODE,
-			caller,
-			AccountRef(addr),
-			input,
-			gas,
-			value,
-		)
-	}
-	// troublor modify ends
-
 	// It is allowed to call precompiles, even via delegatecall
 	if p, isPrecompile := evm.precompile(addr); isPrecompile {
 		ret, gas, err = RunPrecompiledContract(p, input, gas)
@@ -345,19 +333,34 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 		// The contract is a scoped environment for this execution context only.
 		contract := NewContract(caller, AccountRef(caller.Address()), value, gas)
 		contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), evm.StateDB.GetCode(addrCopy))
+
+		// TODO troublor modify starts: evmmonitor proxy
+		if evm.analyzer != nil {
+			evm.analyzer.BeforeMessageCall(
+				TYPE_CALLCODE,
+				caller,
+				AccountRef(addr),
+				input,
+				gas,
+				value,
+			)
+		}
+		// troublor modify ends
+
 		ret, err = run(evm, contract, input, false)
+
+		// TODO troublor modify starts: evmmonitor proxy
+		if evm.analyzer != nil {
+			evm.analyzer.AfterMessageCall(
+				TYPE_CALLCODE,
+				ret,
+				err,
+			)
+		}
+		// troublor modify ends
+
 		gas = contract.Gas
 	}
-
-	// TODO troublor modify starts: evmmonitor proxy
-	if evm.analyzer != nil {
-		evm.analyzer.AfterMessageCall(
-			TYPE_CALLCODE,
-			ret,
-			err,
-		)
-	}
-	// troublor modify ends
 
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
@@ -383,19 +386,6 @@ func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []by
 	}
 	var snapshot = evm.StateDB.Snapshot()
 
-	// TODO troublor modify starts: evmmonitor proxy
-	if evm.analyzer != nil {
-		evm.analyzer.BeforeMessageCall(
-			TYPE_DELEGATECALL,
-			caller,
-			AccountRef(addr),
-			input,
-			gas,
-			new(big.Int),
-		)
-	}
-	// troublor modify ends
-
 	// It is allowed to call precompiles, even via delegatecall
 	if p, isPrecompile := evm.precompile(addr); isPrecompile {
 		ret, gas, err = RunPrecompiledContract(p, input, gas)
@@ -404,19 +394,34 @@ func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []by
 		// Initialise a new contract and make initialise the delegate values
 		contract := NewContract(caller, AccountRef(caller.Address()), nil, gas).AsDelegate()
 		contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), evm.StateDB.GetCode(addrCopy))
+
+		// TODO troublor modify starts: evmmonitor proxy
+		if evm.analyzer != nil {
+			evm.analyzer.BeforeMessageCall(
+				TYPE_DELEGATECALL,
+				caller,
+				AccountRef(addr),
+				input,
+				gas,
+				new(big.Int),
+			)
+		}
+		// troublor modify ends
+
 		ret, err = run(evm, contract, input, false)
+
+		// TODO troublor modify starts: evmmonitor proxy
+		if evm.analyzer != nil {
+			evm.analyzer.AfterMessageCall(
+				TYPE_DELEGATECALL,
+				ret,
+				err,
+			)
+		}
+		// troublor modify ends
+
 		gas = contract.Gas
 	}
-
-	// TODO troublor modify starts: evmmonitor proxy
-	if evm.analyzer != nil {
-		evm.analyzer.AfterMessageCall(
-			TYPE_DELEGATECALL,
-			ret,
-			err,
-		)
-	}
-	// troublor modify ends
 
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
@@ -452,19 +457,6 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 	// future scenarios
 	evm.StateDB.AddBalance(addr, big0)
 
-	// TODO troublor modify starts: evmmonitor proxy
-	if evm.analyzer != nil {
-		evm.analyzer.BeforeMessageCall(
-			TYPE_STATICCALL,
-			caller,
-			to,
-			input,
-			gas,
-			new(big.Int),
-		)
-	}
-	// troublor modify ends
-
 	if p, isPrecompile := evm.precompile(addr); isPrecompile {
 		ret, gas, err = RunPrecompiledContract(p, input, gas)
 	} else {
@@ -476,22 +468,37 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 		// The contract is a scoped environment for this execution context only.
 		contract := NewContract(caller, AccountRef(addrCopy), new(big.Int), gas)
 		contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), evm.StateDB.GetCode(addrCopy))
+
+		// TODO troublor modify starts: evmmonitor proxy
+		if evm.analyzer != nil {
+			evm.analyzer.BeforeMessageCall(
+				TYPE_STATICCALL,
+				caller,
+				contract.self,
+				input,
+				gas,
+				new(big.Int),
+			)
+		}
+		// troublor modify ends
+
 		// When an error was returned by the EVM or when setting the creation code
 		// above we revert to the snapshot and consume any gas remaining. Additionally
 		// when we're in Homestead this also counts for code storage gas errors.
 		ret, err = run(evm, contract, input, true)
+
+		// TODO troublor modify starts: evmmonitor proxy
+		if evm.analyzer != nil {
+			evm.analyzer.AfterMessageCall(
+				TYPE_STATICCALL,
+				ret,
+				err,
+			)
+		}
+		// troublor modify ends
+
 		gas = contract.Gas
 	}
-
-	// TODO troublor modify starts: evmmonitor proxy
-	if evm.analyzer != nil {
-		evm.analyzer.AfterMessageCall(
-			TYPE_STATICCALL,
-			ret,
-			err,
-		)
-	}
-	// troublor modify ends
 
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
