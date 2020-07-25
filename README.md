@@ -7,7 +7,7 @@ This repo will keep update with [go-ethereum](https://github.com/ethereum/go-eth
 
 [![API Reference](
 https://camo.githubusercontent.com/915b7be44ada53c290eb157634330494ebe3e30a/68747470733a2f2f676f646f632e6f72672f6769746875622e636f6d2f676f6c616e672f6764646f3f7374617475732e737667
-)](https://godoc.org/github.com/ethereum/go-ethereum)
+)](https://pkg.go.dev/github.com/ethereum/go-ethereum?tab=doc)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ethereum/go-ethereum)](https://goreportcard.com/report/github.com/ethereum/go-ethereum)
 [![Test](https://github.com/Troublor/darcher-go-ethereum/workflows/Test/badge.svg)]()
 [![Discord](https://img.shields.io/badge/discord-join%20chat-blue.svg)](https://discord.gg/nthXNEv)
@@ -119,7 +119,7 @@ accounts available between them.*
 
 ### Full node on the Rinkeby test network
 
-Go Ethereum also supports connecting to the older proof-of-authority based test network 
+Go Ethereum also supports connecting to the older proof-of-authority based test network
 called [*Rinkeby*](https://www.rinkeby.io) which is operated by members of the community.
 
 ```shell
@@ -128,10 +128,10 @@ $ geth --rinkeby console
 
 ### Full node on the Ropsten test network
 
-In addition to Görli and Rinkeby, Geth also supports the ancient Ropsten testnet. The 
+In addition to Görli and Rinkeby, Geth also supports the ancient Ropsten testnet. The
 Ropsten test network is based on the Ethash proof-of-work consensus algorithm. As such,
 it has certain extra overhead and is more susceptible to reorganization attacks due to the
-network's low difficulty/security. 
+network's low difficulty/security.
 
 ```shell
 $ geth --ropsten console
