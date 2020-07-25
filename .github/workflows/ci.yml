@@ -37,10 +37,10 @@ jobs:
     # only test ethmonitor, miner, vm
     - name: Test
       run: go test -v ./ethmonitor/... ./miner/... ./core/vm/...
+    
+    - name: GitHub Action for Yarn
+      uses: Borales/actions-yarn@v2.3.0
       
-      
-    - name: Yarn CLI
-      uses: CultureHQ/actions-yarn@v1.22.4
     - name: Install Node.js dependencies
       run: yarn
     
