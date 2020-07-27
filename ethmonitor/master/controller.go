@@ -154,7 +154,7 @@ type DarcherController struct {
 	txStates map[string]rpc.TxState
 
 	ctx    context.Context
-	client rpc.DarcherControllerServiceClient
+	client rpc.EthmonitorControllerServiceClient
 }
 
 func NewDarcherController(darcherPort int) *DarcherController {
@@ -168,7 +168,7 @@ func NewDarcherController(darcherPort int) *DarcherController {
 		txStates: make(map[string]rpc.TxState),
 
 		ctx:    context.Background(),
-		client: rpc.NewDarcherControllerServiceClient(conn),
+		client: rpc.NewEthmonitorControllerServiceClient(conn),
 	}
 }
 
