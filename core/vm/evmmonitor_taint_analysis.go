@@ -10,14 +10,14 @@ import (
 type ProgramPoint struct {
 	pc        uint64
 	op        OpCode
-	operation operation
+	operation *operation
 }
 
 type TaintedPosition interface {
 	// returns the propagated positions after op, if current position is not consumed, it should also be returned
-	Propagate(op OpCode, operation operation, ctx *callCtx) []TaintedPosition
+	Propagate(op OpCode, operation *operation, ctx *callCtx) []TaintedPosition
 	// whether this tainted position is used in op
-	IsUsed(op OpCode, operation operation, ctx *callCtx) bool
+	IsUsed(op OpCode, operation *operation, ctx *callCtx) bool
 	// equality of two position, to remove duplicate
 	Equal(another TaintedPosition) bool
 	// Invalid, the position has been consumed
@@ -30,7 +30,7 @@ type StackPosition struct {
 	depth int
 }
 
-func (p *StackPosition) Propagate(op OpCode, operation operation, ctx *callCtx) []TaintedPosition {
+func (p *StackPosition) Propagate(op OpCode, operation *operation, ctx *callCtx) []TaintedPosition {
 	if p.Invalid() {
 		return make([]TaintedPosition, 0)
 	}
@@ -89,7 +89,7 @@ func (p *StackPosition) Propagate(op OpCode, operation operation, ctx *callCtx) 
 	return newPositions
 }
 
-func (p *StackPosition) IsUsed(op OpCode, operation operation, ctx *callCtx) bool {
+func (p *StackPosition) IsUsed(op OpCode, operation *operation, ctx *callCtx) bool {
 	if p.Invalid() {
 		return false
 	}
@@ -124,7 +124,7 @@ type MemoryPosition struct {
 	size    uint64
 }
 
-func (p *MemoryPosition) Propagate(op OpCode, operation operation, ctx *callCtx) []TaintedPosition {
+func (p *MemoryPosition) Propagate(op OpCode, operation *operation, ctx *callCtx) []TaintedPosition {
 	if p.Invalid() {
 		return make([]TaintedPosition, 0)
 	}
@@ -178,7 +178,7 @@ func (p *MemoryPosition) Propagate(op OpCode, operation operation, ctx *callCtx)
 	return newPositions
 }
 
-func (p *MemoryPosition) IsUsed(op OpCode, operation operation, ctx *callCtx) bool {
+func (p *MemoryPosition) IsUsed(op OpCode, operation *operation, ctx *callCtx) bool {
 	if p.Invalid() {
 		return false
 	}
@@ -218,7 +218,7 @@ type StoragePosition struct {
 	key     common.Hash
 }
 
-func (p *StoragePosition) Propagate(op OpCode, operation operation, ctx *callCtx) []TaintedPosition {
+func (p *StoragePosition) Propagate(op OpCode, operation *operation, ctx *callCtx) []TaintedPosition {
 	if p.Invalid() {
 		return make([]TaintedPosition, 0)
 	}
@@ -240,7 +240,7 @@ func (p *StoragePosition) Propagate(op OpCode, operation operation, ctx *callCtx
 	return newPositions
 }
 
-func (p *StoragePosition) IsUsed(op OpCode, operation operation, ctx *callCtx) bool {
+func (p *StoragePosition) IsUsed(op OpCode, operation *operation, ctx *callCtx) bool {
 	if p.Invalid() {
 		return false
 	}
@@ -314,7 +314,7 @@ func NewTaintTracker(source ProgramPoint, ctx *callCtx) *TaintTracker {
 	}
 }
 
-func (t *TaintTracker) Propagate(op OpCode, operation operation, ctx *callCtx) {
+func (t *TaintTracker) Propagate(op OpCode, operation *operation, ctx *callCtx) {
 	old := t.taintedPositions
 	t.taintedPositions = make([]TaintedPosition, 0)
 	for _, pos := range old {
@@ -334,7 +334,7 @@ func (t *TaintTracker) addTaintedPosition(position TaintedPosition) {
 	t.taintedPositions = append(t.taintedPositions, position)
 }
 
-func (t *TaintTracker) IsOpTainted(op OpCode, operation operation, ctx *callCtx) bool {
+func (t *TaintTracker) IsOpTainted(op OpCode, operation *operation, ctx *callCtx) bool {
 	for _, p := range t.taintedPositions {
 		if p.IsUsed(op, operation, ctx) {
 			return true

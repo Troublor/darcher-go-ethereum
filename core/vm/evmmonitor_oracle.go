@@ -15,8 +15,8 @@ type Oracle interface {
 	Type() rpc.ContractVulType
 	BeforeTransaction(tx *types.Transaction)
 	BeforeMessageCall(callStack *GeneralStack, call MessageCall)
-	BeforeOperation(op OpCode, operation operation, pc uint64, ctx *callCtx)
-	AfterOperation(op OpCode, operation operation, pc uint64, ctx *callCtx)
+	BeforeOperation(op OpCode, operation *operation, pc uint64, ctx *callCtx)
+	AfterOperation(op OpCode, operation *operation, pc uint64, ctx *callCtx)
 	AfterMessageCall(callStack *GeneralStack, call MessageCall)
 	AfterTransaction(tx *types.Transaction, receipt *types.Receipt)
 
@@ -57,7 +57,7 @@ func (o *GaslessSendOracle) BeforeMessageCall(callStack *GeneralStack, call Mess
 	}
 }
 
-func (o *GaslessSendOracle) BeforeOperation(op OpCode, operation operation, pc uint64, ctx *callCtx) {
+func (o *GaslessSendOracle) BeforeOperation(op OpCode, operation *operation, pc uint64, ctx *callCtx) {
 	if op == CALL || op == CALLCODE {
 		gasLimit := ctx.stack.Back(0)
 		value := ctx.stack.Back(2)
@@ -75,7 +75,7 @@ func (o *GaslessSendOracle) BeforeOperation(op OpCode, operation operation, pc u
 	}
 }
 
-func (o *GaslessSendOracle) AfterOperation(op OpCode, operation operation, pc uint64, ctx *callCtx) {
+func (o *GaslessSendOracle) AfterOperation(op OpCode, operation *operation, pc uint64, ctx *callCtx) {
 	return
 }
 
@@ -143,11 +143,11 @@ func (o *ExceptionDisorderOracle) BeforeMessageCall(callStack *GeneralStack, cal
 	}
 }
 
-func (o *ExceptionDisorderOracle) BeforeOperation(op OpCode, operation operation, pc uint64, ctx *callCtx) {
+func (o *ExceptionDisorderOracle) BeforeOperation(op OpCode, operation *operation, pc uint64, ctx *callCtx) {
 	return
 }
 
-func (o *ExceptionDisorderOracle) AfterOperation(op OpCode, operation operation, pc uint64, ctx *callCtx) {
+func (o *ExceptionDisorderOracle) AfterOperation(op OpCode, operation *operation, pc uint64, ctx *callCtx) {
 	return
 }
 
@@ -239,11 +239,11 @@ func (o *ReentrancyOracle) BeforeMessageCall(callStack *GeneralStack, call Messa
 	}
 }
 
-func (o *ReentrancyOracle) BeforeOperation(op OpCode, operation operation, pc uint64, ctx *callCtx) {
+func (o *ReentrancyOracle) BeforeOperation(op OpCode, operation *operation, pc uint64, ctx *callCtx) {
 	return
 }
 
-func (o *ReentrancyOracle) AfterOperation(op OpCode, operation operation, pc uint64, ctx *callCtx) {
+func (o *ReentrancyOracle) AfterOperation(op OpCode, operation *operation, pc uint64, ctx *callCtx) {
 	return
 }
 
@@ -285,7 +285,7 @@ func (o *TimestampDependencyOracle) BeforeMessageCall(callStack *GeneralStack, c
 	o.currentCall = call
 }
 
-func (o *TimestampDependencyOracle) BeforeOperation(op OpCode, operation operation, pc uint64, ctx *callCtx) {
+func (o *TimestampDependencyOracle) BeforeOperation(op OpCode, operation *operation, pc uint64, ctx *callCtx) {
 	if op == TIMESTAMP {
 		o.useTimestamp = true
 	} else if o.useTimestamp && (op == CALL || op == CALLCODE) {
@@ -306,7 +306,7 @@ func (o *TimestampDependencyOracle) BeforeOperation(op OpCode, operation operati
 	}
 }
 
-func (o *TimestampDependencyOracle) AfterOperation(op OpCode, operation operation, pc uint64, ctx *callCtx) {
+func (o *TimestampDependencyOracle) AfterOperation(op OpCode, operation *operation, pc uint64, ctx *callCtx) {
 	return
 }
 
@@ -346,7 +346,7 @@ func (o *BlockNumberDependencyOracle) BeforeMessageCall(callStack *GeneralStack,
 	o.currentCall = call
 }
 
-func (o *BlockNumberDependencyOracle) BeforeOperation(op OpCode, operation operation, pc uint64, ctx *callCtx) {
+func (o *BlockNumberDependencyOracle) BeforeOperation(op OpCode, operation *operation, pc uint64, ctx *callCtx) {
 	if op == NUMBER {
 		o.useBlockNumber = true
 	} else if o.useBlockNumber && (op == CALL || op == CALLCODE) {
@@ -367,7 +367,7 @@ func (o *BlockNumberDependencyOracle) BeforeOperation(op OpCode, operation opera
 	}
 }
 
-func (o *BlockNumberDependencyOracle) AfterOperation(op OpCode, operation operation, pc uint64, ctx *callCtx) {
+func (o *BlockNumberDependencyOracle) AfterOperation(op OpCode, operation *operation, pc uint64, ctx *callCtx) {
 	return
 }
 
@@ -410,7 +410,7 @@ func (o *DangerousDelegateCallOracle) BeforeMessageCall(callStack *GeneralStack,
 	o.currentCall = call
 }
 
-func (o *DangerousDelegateCallOracle) BeforeOperation(op OpCode, operation operation, pc uint64, ctx *callCtx) {
+func (o *DangerousDelegateCallOracle) BeforeOperation(op OpCode, operation *operation, pc uint64, ctx *callCtx) {
 	if op == CALLDATALOAD || op == CALLDATACOPY {
 		// tainted source is call data
 		o.callDataTrackers = append(o.callDataTrackers, NewTaintTracker(ProgramPoint{
@@ -443,7 +443,7 @@ func (o *DangerousDelegateCallOracle) BeforeOperation(op OpCode, operation opera
 	}
 }
 
-func (o *DangerousDelegateCallOracle) AfterOperation(op OpCode, operation operation, pc uint64, ctx *callCtx) {
+func (o *DangerousDelegateCallOracle) AfterOperation(op OpCode, operation *operation, pc uint64, ctx *callCtx) {
 	return
 }
 

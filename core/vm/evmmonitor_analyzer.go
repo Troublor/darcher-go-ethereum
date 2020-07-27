@@ -96,13 +96,13 @@ func (a *Analyzer) AfterMessageCall(callType CallType, ret []byte, err error) {
 	a.callStack.Pop()
 }
 
-func (a *Analyzer) BeforeOperation(op OpCode, operation operation, pc uint64, ctx *callCtx) {
+func (a *Analyzer) BeforeOperation(op OpCode, operation *operation, pc uint64, ctx *callCtx) {
 	for _, oracle := range a.oracles {
 		oracle.BeforeOperation(op, operation, pc, ctx)
 	}
 }
 
-func (a *Analyzer) AfterOperation(op OpCode, operation operation, pc uint64, ctx *callCtx) {
+func (a *Analyzer) AfterOperation(op OpCode, operation *operation, pc uint64, ctx *callCtx) {
 	for _, oracle := range a.oracles {
 		oracle.AfterOperation(op, operation, pc, ctx)
 	}
