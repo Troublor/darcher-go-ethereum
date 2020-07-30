@@ -24,6 +24,7 @@ type EthmonitorControllerServiceClient interface {
 	NotifyTxStateChangeMsg(ctx context.Context, in *TxStateChangeMsg, opts ...grpc.CallOption) (*empty.Empty, error)
 	AskForNextState(ctx context.Context, in *TxStateControlMsg, opts ...grpc.CallOption) (*TxStateControlMsg, error)
 	SelectTx(ctx context.Context, in *SelectTxControlMsg, opts ...grpc.CallOption) (*SelectTxControlMsg, error)
+	NotifyTxError(ctx context.Context, in *TxErrorMsg, opts ...grpc.CallOption) (*empty.Empty, error)
 }
 
 type ethmonitorControllerServiceClient struct {
@@ -88,6 +89,15 @@ func (c *ethmonitorControllerServiceClient) SelectTx(ctx context.Context, in *Se
 	return out, nil
 }
 
+func (c *ethmonitorControllerServiceClient) NotifyTxError(ctx context.Context, in *TxErrorMsg, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/darcher.EthmonitorControllerService/notifyTxError", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // EthmonitorControllerServiceServer is the server API for EthmonitorControllerService service.
 // All implementations must embed UnimplementedEthmonitorControllerServiceServer
 // for forward compatibility
@@ -98,6 +108,7 @@ type EthmonitorControllerServiceServer interface {
 	NotifyTxStateChangeMsg(context.Context, *TxStateChangeMsg) (*empty.Empty, error)
 	AskForNextState(context.Context, *TxStateControlMsg) (*TxStateControlMsg, error)
 	SelectTx(context.Context, *SelectTxControlMsg) (*SelectTxControlMsg, error)
+	NotifyTxError(context.Context, *TxErrorMsg) (*empty.Empty, error)
 	mustEmbedUnimplementedEthmonitorControllerServiceServer()
 }
 
@@ -122,6 +133,9 @@ func (*UnimplementedEthmonitorControllerServiceServer) AskForNextState(context.C
 }
 func (*UnimplementedEthmonitorControllerServiceServer) SelectTx(context.Context, *SelectTxControlMsg) (*SelectTxControlMsg, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SelectTx not implemented")
+}
+func (*UnimplementedEthmonitorControllerServiceServer) NotifyTxError(context.Context, *TxErrorMsg) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NotifyTxError not implemented")
 }
 func (*UnimplementedEthmonitorControllerServiceServer) mustEmbedUnimplementedEthmonitorControllerServiceServer() {
 }
@@ -238,6 +252,24 @@ func _EthmonitorControllerService_SelectTx_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _EthmonitorControllerService_NotifyTxError_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TxErrorMsg)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EthmonitorControllerServiceServer).NotifyTxError(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/darcher.EthmonitorControllerService/NotifyTxError",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EthmonitorControllerServiceServer).NotifyTxError(ctx, req.(*TxErrorMsg))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _EthmonitorControllerService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "darcher.EthmonitorControllerService",
 	HandlerType: (*EthmonitorControllerServiceServer)(nil),
@@ -265,6 +297,10 @@ var _EthmonitorControllerService_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "selectTx",
 			Handler:    _EthmonitorControllerService_SelectTx_Handler,
+		},
+		{
+			MethodName: "notifyTxError",
+			Handler:    _EthmonitorControllerService_NotifyTxError_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
