@@ -1038,6 +1038,12 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 		if failed {
 			if result != nil && result.Err != vm.ErrOutOfGas {
 				if len(result.Revert()) > 0 {
+					// TODO troublor modify starts: make estimateGas do not return error when tx is reverted
+					if txScheduler != nil {
+						// if txScheduler is set, means we are running under ethmonitor
+						return hexutil.Uint64(hi), nil
+					}
+					// TODO troublor modify ends
 					return 0, newRevertError(result)
 				}
 				return 0, result.Err
