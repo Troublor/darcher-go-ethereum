@@ -165,6 +165,17 @@ func (c *Cluster) GetTalkerCurrentHead() *rpc.ChainHead {
 	return nil
 }
 
+func (c *Cluster) GetContractVulnerabilityReports(txHash string) []*rpc.ContractVulReport {
+	doneCh, errCh := c.server.ContractOracleService().GetReportsByTransaction(rpc.Role_DOER, txHash)
+	select {
+	case reply := <-doneCh:
+		return reply.GetReports()
+	case err := <-errCh:
+		log.Error("GetReportsByTransaction rpc error", "err", err)
+	}
+	return nil
+}
+
 /**
 subscribe the new transaction event of geth node
 */
@@ -178,6 +189,10 @@ func (c *Cluster) SubscribeNewChainHead(ch chan<- *rpc.ChainHead) event.Subscrip
 
 func (c *Cluster) SubscribeNewChainSide(ch chan<- *rpc.ChainSide) event.Subscription {
 	return c.server.BlockchainStatusService().SubscribeNewChainSide(ch)
+}
+
+func (c *Cluster) SubscribeTxError(ch chan<- *rpc.TxErrorMsg) event.Subscription {
+	return c.server.ContractOracleService().SubscribeTxError(ch)
 }
 
 func (c *Cluster) flushTxs() {

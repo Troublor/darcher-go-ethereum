@@ -1,9 +1,12 @@
 package service
 
 import (
+	"context"
 	"github.com/ethereum/go-ethereum/ethmonitor/master/common"
 	"github.com/ethereum/go-ethereum/ethmonitor/rpc"
+	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/golang/protobuf/ptypes/empty"
 	"io"
 	"reflect"
 	"sync"
@@ -11,6 +14,9 @@ import (
 
 type ContractOracleService struct {
 	rpc.ContractVulnerabilityServiceServer
+
+	// feed *rpc.TxErrorMsg, which comes from NotifyTxError rpc
+	txErrorFeed event.Feed
 
 	/* reverse rpc */
 	getReportsByContractRPCs    sync.Map
@@ -59,6 +65,19 @@ func (s *ContractOracleService) GetReportsByTransactionControl(stream rpc.Contra
 	return nil
 }
 
+// NotifyTxError rpc, called by ethmonitor.worker when tx execution error occurs
+func (s *ContractOracleService) NotifyTxError(ctx context.Context, msg *rpc.TxErrorMsg) (*empty.Empty, error) {
+	s.txErrorFeed.Send(msg)
+	return &empty.Empty{}, nil
+}
+
+/**
+Subscribe to *rpc.TxError
+*/
+func (s *ContractOracleService) SubscribeTxError(ch chan<- *rpc.TxErrorMsg) event.Subscription {
+	return s.txErrorFeed.Subscribe(ch)
+}
+
 func (s *ContractOracleService) GetReportsByContract(role rpc.Role, address string) (doneCh chan *rpc.GetReportsByContractControlMsg, errCh chan error) {
 	doneCh = make(chan *rpc.GetReportsByContractControlMsg, 1)
 	errCh = make(chan error, 1)
@@ -78,6 +97,29 @@ func (s *ContractOracleService) GetReportsByContract(role rpc.Role, address stri
 			return
 		}
 		doneCh <- reply.(*rpc.GetReportsByContractControlMsg)
+	}()
+	return doneCh, errCh
+}
+
+func (s *ContractOracleService) GetReportsByTransaction(role rpc.Role, txHash string) (doneCh chan *rpc.GetReportsByTransactionControlMsg, errCh chan error) {
+	doneCh = make(chan *rpc.GetReportsByTransactionControlMsg, 1)
+	errCh = make(chan error, 1)
+	go func() {
+		rrpc, ok := s.getReportsByTransactionRPCs.Load(role)
+		if !ok {
+			errCh <- ServiceNotAvailableErr
+			return
+		}
+		reply, err := rrpc.(*ReverseRPC).Call(&rpc.GetReportsByTransactionControlMsg{
+			Role: role,
+			Id:   common.GetUUID(),
+			Hash: txHash,
+		})
+		if err != nil {
+			errCh <- err
+			return
+		}
+		doneCh <- reply.(*rpc.GetReportsByTransactionControlMsg)
 	}()
 	return doneCh, errCh
 }

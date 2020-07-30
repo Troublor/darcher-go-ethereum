@@ -43,6 +43,7 @@ func (m *EthMonitor) Start() {
 	m.cluster.Start(false)
 	go m.newTxLoop()
 	go m.traverseLoop()
+	go m.txErrorLoop()
 	select {}
 }
 
@@ -107,6 +108,21 @@ func (m *EthMonitor) traverseLoop() {
 			scope, _ := m.traverserSubscriptions.Load(selected.Tx().Hash())
 			scope.(*event.SubscriptionScope).Close()
 			m.traverserSubscriptions.Delete(selected.Tx().Hash())
+		}
+	}
+}
+
+/**
+txErrorLoop listen for txError from contractOracleService.txErrorFeed and call controller.TxErrorHook
+*/
+func (m *EthMonitor) txErrorLoop() {
+	txErrorCh := make(chan *rpc.TxErrorMsg, 10)
+	txErrorSub := m.cluster.SubscribeTxError(txErrorCh)
+	defer txErrorSub.Unsubscribe()
+	for {
+		txError := <-txErrorCh
+		if txError != nil {
+			m.txController.TxErrorHook(txError)
 		}
 	}
 }

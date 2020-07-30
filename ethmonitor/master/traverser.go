@@ -77,6 +77,15 @@ func (t *Traverser) ResumeTraverse() {
 		}
 	}
 
+	// retrieve contract vulnerability reports and call controller.ContractVulnerabilityHook
+	reports := t.cluster.GetContractVulnerabilityReports(t.tx.Hash())
+	if len(reports) > 0 {
+		// call hook if there is vul report
+		for _, report := range reports {
+			t.controller.ContractVulnerabilityHook(report)
+		}
+	}
+
 	// this may block, controlled by the controller
 	t.controller.TxFinishedHook(t.tx.Hash())
 	log.Debug("Tx traverse finished", "tx", t.tx.PrettyHash())

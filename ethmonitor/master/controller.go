@@ -25,6 +25,10 @@ type TxController interface {
 	TxFinishedHook(txHash string)
 	// this method is called when traverser starts traverse
 	TxResumeHook(txHash string)
+	// this method is called when tx execution error
+	TxErrorHook(txError *rpc.TxErrorMsg)
+	// this method is called at most for each tx if there is contract vulnerability detected
+	ContractVulnerabilityHook(vulReport *rpc.ContractVulReport)
 }
 
 /**
@@ -53,6 +57,14 @@ func (t *TrivialController) TxFinishedHook(txHash string) {
 }
 
 func (t *TrivialController) TxResumeHook(txHash string) {
+	return
+}
+
+func (t *TrivialController) TxErrorHook(txError *rpc.TxErrorMsg) {
+	return
+}
+
+func (t *TrivialController) ContractVulnerabilityHook(vulReport *rpc.ContractVulReport) {
 	return
 }
 
@@ -150,6 +162,14 @@ func (c *ConsoleController) OnStateChange(txHash string, currentState rpc.TxStat
 	return
 }
 
+func (c *ConsoleController) TxErrorHook(txError *rpc.TxErrorMsg) {
+	log.Error("Tx execution error detected", "hash", common.PrettifyHash(txError.GetHash()), "type", txError.Type.String(), "err", txError.GetDescription())
+}
+
+func (c *ConsoleController) ContractVulnerabilityHook(vulReport *rpc.ContractVulReport) {
+	log.Error("Contract vulnerability detected", "contract", vulReport.GetAddress(), "tx", common.PrettifyHash(vulReport.GetTxHash()), "vul", vulReport.GetType().String())
+}
+
 type DarcherController struct {
 	txStates map[string]rpc.TxState
 
@@ -235,6 +255,20 @@ func (d *DarcherController) OnStateChange(txHash string, currentState rpc.TxStat
 	}
 }
 
+func (d *DarcherController) TxErrorHook(txError *rpc.TxErrorMsg) {
+	_, err := d.client.NotifyTxError(d.ctx, txError)
+	if err != nil {
+		log.Error("NotifyTxError RPC error", "err", err)
+	}
+}
+
+func (d *DarcherController) ContractVulnerabilityHook(vulReport *rpc.ContractVulReport) {
+	_, err := d.client.NotifyContractVulnerability(d.ctx, vulReport)
+	if err != nil {
+		log.Error("NotifyContractVulnerability RPC error", "err", err)
+	}
+}
+
 /**
 Deploy controller is useful when deploy contracts, it is much faster because
 it doesn't require
@@ -281,6 +315,14 @@ func (c *DeployController) TxFinishedHook(txHash string) {
 }
 
 func (c *DeployController) TxResumeHook(txHash string) {
+	return
+}
+
+func (c *DeployController) TxErrorHook(txError *rpc.TxErrorMsg) {
+	return
+}
+
+func (c *DeployController) ContractVulnerabilityHook(vulReport *rpc.ContractVulReport) {
 	return
 }
 
@@ -334,5 +376,13 @@ func (c *RobustnessTestController) TxFinishedHook(txHash string) {
 }
 
 func (c *RobustnessTestController) TxResumeHook(txHash string) {
+	return
+}
+
+func (c *RobustnessTestController) TxErrorHook(txError *rpc.TxErrorMsg) {
+	return
+}
+
+func (c *RobustnessTestController) ContractVulnerabilityHook(vulReport *rpc.ContractVulReport) {
 	return
 }
