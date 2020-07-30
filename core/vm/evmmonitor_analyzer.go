@@ -124,6 +124,8 @@ func (a *Analyzer) Reports() []*rpc.ContractVulReport {
 	reports := make([]*rpc.ContractVulReport, 0)
 	for _, oracle := range a.oracles {
 		reports = append(reports, oracle.Reports()...)
+		// clear all oracle reports
+		oracle.Clear()
 	}
 	return reports
 }

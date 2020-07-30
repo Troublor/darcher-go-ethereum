@@ -21,6 +21,7 @@ type Oracle interface {
 	AfterTransaction(tx *types.Transaction, receipt *types.Receipt)
 
 	Reports() []*rpc.ContractVulReport
+	Clear()
 }
 
 type GaslessSendOracle struct {
@@ -112,6 +113,10 @@ func (o *GaslessSendOracle) Type() rpc.ContractVulType {
 	return rpc.ContractVulType_GASLESS_SEND
 }
 
+func (o *GaslessSendOracle) Clear() {
+	o.reports = make([]*rpc.ContractVulReport, 0)
+}
+
 type ExceptionDisorderOracle struct {
 	reports []*rpc.ContractVulReport
 
@@ -179,6 +184,10 @@ func (o *ExceptionDisorderOracle) AfterTransaction(tx *types.Transaction, receip
 
 func (o *ExceptionDisorderOracle) Reports() []*rpc.ContractVulReport {
 	return o.reports
+}
+
+func (o *ExceptionDisorderOracle) Clear() {
+	o.reports = make([]*rpc.ContractVulReport, 0)
 }
 
 type ReentrancyOracle struct {
@@ -262,6 +271,10 @@ func (o *ReentrancyOracle) Reports() []*rpc.ContractVulReport {
 	return o.reports
 }
 
+func (o *ReentrancyOracle) Clear() {
+	o.reports = make([]*rpc.ContractVulReport, 0)
+}
+
 type TimestampDependencyOracle struct {
 	reports      []*rpc.ContractVulReport
 	currentTx    *types.Transaction
@@ -323,6 +336,10 @@ func (o *TimestampDependencyOracle) Reports() []*rpc.ContractVulReport {
 	return o.reports
 }
 
+func (o *TimestampDependencyOracle) Clear() {
+	o.reports = make([]*rpc.ContractVulReport, 0)
+}
+
 type BlockNumberDependencyOracle struct {
 	reports        []*rpc.ContractVulReport
 	currentTx      *types.Transaction
@@ -382,6 +399,10 @@ func (o *BlockNumberDependencyOracle) AfterTransaction(tx *types.Transaction, re
 
 func (o *BlockNumberDependencyOracle) Reports() []*rpc.ContractVulReport {
 	return o.reports
+}
+
+func (o *BlockNumberDependencyOracle) Clear() {
+	o.reports = make([]*rpc.ContractVulReport, 0)
 }
 
 type DangerousDelegateCallOracle struct {
@@ -457,4 +478,8 @@ func (o *DangerousDelegateCallOracle) AfterTransaction(tx *types.Transaction, re
 
 func (o *DangerousDelegateCallOracle) Reports() []*rpc.ContractVulReport {
 	return o.reports
+}
+
+func (o *DangerousDelegateCallOracle) Clear() {
+	o.reports = make([]*rpc.ContractVulReport, 0)
 }

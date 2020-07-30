@@ -109,3 +109,7 @@ func (p *EVMMonitorProxy) ReportsToFile(outputFile string) {
 		}
 	}
 }
+
+func (p *EVMMonitorProxy) TxErrors() []*rpc.TxErrorMsg {
+	return nil
+}
