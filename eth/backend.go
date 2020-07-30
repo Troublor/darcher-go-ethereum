@@ -345,6 +345,7 @@ func NewWithMonitor(ctx *node.ServiceContext, config *Config, monitor *ethmonito
 	monitor.SetEth(eth)
 	// feed tx scheduler to ethapi.EthereumPublicAPI
 	ethapi.SetTxScheduler(monitor.GetTxScheduler())
+	vm.GetEVMMonitorProxy().SetTxErrorNotifier(monitor.GetTxErrorNotifier())
 	eth.miner = miner.NewMinerWithMonitor(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock, monitor)
 	eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData))
 

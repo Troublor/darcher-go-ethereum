@@ -61,6 +61,8 @@ type EthMonitorClient struct {
 
 	/* contract oracle service */
 	contractOracleService rpc.ContractVulnerabilityServiceClient
+	// simple rpc
+	notifyTxErrorMutex sync.RWMutex
 	// reverse RPCs
 	getReportsByContractControl         rpc.ContractVulnerabilityService_GetReportsByContractControlClient
 	getReportsByContractControlMutex    sync.Mutex
@@ -264,6 +266,20 @@ func (c *EthMonitorClient) _notifyNodeStart(node *node.Node) error {
 			Txs:    txs,
 		},
 	})
+	return err
+}
+
+/**
+Notify TxError (rpc.TxErrorMsg) to ethmonitor.master, this should be called when tx execution throws an error
+*/
+func (c *EthMonitorClient) NotifyTxError(txErrorMsg *rpc.TxErrorMsg) error {
+	c.notifyTxErrorMutex.Lock()
+	defer c.notifyTxErrorMutex.Unlock()
+	return c._notifyTxError(txErrorMsg)
+}
+
+func (c *EthMonitorClient) _notifyTxError(txErrorMsg *rpc.TxErrorMsg) error {
+	_, err := c.contractOracleService.NotifyTxError(c.ctx, txErrorMsg)
 	return err
 }
 

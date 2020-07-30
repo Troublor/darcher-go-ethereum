@@ -24,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethmonitor/rpc"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -134,6 +135,14 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 
 	// TODO troublor modify starts:
 	vm.GetEVMMonitorProxy().AfterTransaction(tx, receipt)
+	if result.Failed() {
+		msg := &rpc.TxErrorMsg{
+			Hash:        tx.Hash().Hex(),
+			Type:        rpc.TxErrorType_REVERT,
+			Description: result.Err.Error(),
+		}
+		vm.GetEVMMonitorProxy().NotifyTxError(msg)
+	}
 	// troublor modify ends
 
 	return receipt, err

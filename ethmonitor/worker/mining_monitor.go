@@ -504,6 +504,13 @@ func (m *MiningMonitor) GetTxScheduler() TxScheduler {
 	return m.txScheduler
 }
 
+/**
+TxErrorNotifier is used for vm.EVMMonitorProxy to notify tx execution errors
+*/
+func (m *MiningMonitor) GetTxErrorNotifier() func(msg *rpc.TxErrorMsg) error {
+	return m.client.NotifyTxError
+}
+
 func (m *MiningMonitor) IsTxAllowed(hash common.Hash) bool {
 	if m.currentTask == nil {
 		// if there is no mining task, do not allow any transaction

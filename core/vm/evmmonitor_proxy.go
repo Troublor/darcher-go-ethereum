@@ -22,6 +22,9 @@ func GetEVMMonitorProxy() *EVMMonitorProxy {
 
 type EVMMonitorProxy struct {
 	analyzer *Analyzer
+
+	// tx error notifier, we use this notifier, which is set by ethmonitor.worker, to notify tx error for ethmonitor.master when any tx execution error happens
+	txErrorNotifier func(msg *rpc.TxErrorMsg) error
 }
 
 /**
@@ -110,6 +113,15 @@ func (p *EVMMonitorProxy) ReportsToFile(outputFile string) {
 	}
 }
 
-func (p *EVMMonitorProxy) TxErrors() []*rpc.TxErrorMsg {
-	return nil
+func (p *EVMMonitorProxy) SetTxErrorNotifier(notifier func(msg *rpc.TxErrorMsg) error) {
+	p.txErrorNotifier = notifier
+}
+
+func (p *EVMMonitorProxy) NotifyTxError(msg *rpc.TxErrorMsg) {
+	if p.txErrorNotifier != nil {
+		err := p.txErrorNotifier(msg)
+		if err != nil {
+			log.Error("Notify TxError failed", "err", err)
+		}
+	}
 }

@@ -4,6 +4,7 @@ package rpc
 
 import (
 	context "context"
+	empty "github.com/golang/protobuf/ptypes/empty"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -19,6 +20,8 @@ const _ = grpc.SupportPackageIsVersion6
 type ContractVulnerabilityServiceClient interface {
 	GetReportsByContractControl(ctx context.Context, opts ...grpc.CallOption) (ContractVulnerabilityService_GetReportsByContractControlClient, error)
 	GetReportsByTransactionControl(ctx context.Context, opts ...grpc.CallOption) (ContractVulnerabilityService_GetReportsByTransactionControlClient, error)
+	// actively notify tx error to ethmonitor
+	NotifyTxError(ctx context.Context, in *TxErrorMsg, opts ...grpc.CallOption) (*empty.Empty, error)
 }
 
 type contractVulnerabilityServiceClient struct {
@@ -91,12 +94,23 @@ func (x *contractVulnerabilityServiceGetReportsByTransactionControlClient) Recv(
 	return m, nil
 }
 
+func (c *contractVulnerabilityServiceClient) NotifyTxError(ctx context.Context, in *TxErrorMsg, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/darcher.ContractVulnerabilityService/notifyTxError", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ContractVulnerabilityServiceServer is the server API for ContractVulnerabilityService service.
 // All implementations must embed UnimplementedContractVulnerabilityServiceServer
 // for forward compatibility
 type ContractVulnerabilityServiceServer interface {
 	GetReportsByContractControl(ContractVulnerabilityService_GetReportsByContractControlServer) error
 	GetReportsByTransactionControl(ContractVulnerabilityService_GetReportsByTransactionControlServer) error
+	// actively notify tx error to ethmonitor
+	NotifyTxError(context.Context, *TxErrorMsg) (*empty.Empty, error)
 	mustEmbedUnimplementedContractVulnerabilityServiceServer()
 }
 
@@ -109,6 +123,9 @@ func (*UnimplementedContractVulnerabilityServiceServer) GetReportsByContractCont
 }
 func (*UnimplementedContractVulnerabilityServiceServer) GetReportsByTransactionControl(ContractVulnerabilityService_GetReportsByTransactionControlServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetReportsByTransactionControl not implemented")
+}
+func (*UnimplementedContractVulnerabilityServiceServer) NotifyTxError(context.Context, *TxErrorMsg) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NotifyTxError not implemented")
 }
 func (*UnimplementedContractVulnerabilityServiceServer) mustEmbedUnimplementedContractVulnerabilityServiceServer() {
 }
@@ -169,10 +186,33 @@ func (x *contractVulnerabilityServiceGetReportsByTransactionControlServer) Recv(
 	return m, nil
 }
 
+func _ContractVulnerabilityService_NotifyTxError_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TxErrorMsg)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ContractVulnerabilityServiceServer).NotifyTxError(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/darcher.ContractVulnerabilityService/NotifyTxError",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ContractVulnerabilityServiceServer).NotifyTxError(ctx, req.(*TxErrorMsg))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _ContractVulnerabilityService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "darcher.ContractVulnerabilityService",
 	HandlerType: (*ContractVulnerabilityServiceServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "notifyTxError",
+			Handler:    _ContractVulnerabilityService_NotifyTxError_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "getReportsByContractControl",
