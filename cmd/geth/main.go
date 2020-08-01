@@ -63,7 +63,7 @@ var (
 		// TODO troublor modify starts
 		utils.EVMAnalyer,
 		utils.TalkerFlag,
-		utils.MonitorPort,
+		utils.MonitorAddress,
 		// troublor modify ends
 		utils.IdentityFlag,
 		utils.UnlockedAccountFlag,
