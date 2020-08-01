@@ -19,6 +19,9 @@ package main
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/core/vm"
+	ethmonitor_rpc "github.com/ethereum/go-ethereum/ethmonitor/rpc"
+	ethmonitor "github.com/ethereum/go-ethereum/ethmonitor/worker"
 	"math"
 	"os"
 	godebug "runtime/debug"
@@ -354,7 +357,31 @@ func geth(ctx *cli.Context) error {
 		return fmt.Errorf("invalid command: %q", args[0])
 	}
 	prepare(ctx)
-	node := makeFullNode(ctx)
+
+	// TODO troublor modify starts
+	var role ethmonitor_rpc.Role
+	if ctx.GlobalBool(utils.TalkerFlag.Name) {
+		role = ethmonitor_rpc.Role_TALKER
+	} else {
+		role = ethmonitor_rpc.Role_DOER
+	}
+	if ctx.GlobalBool(utils.EVMAnalyer.Name) {
+		vm.EnableEVMAnalyzer()
+	}
+	monitorAddress := ctx.GlobalString(utils.MonitorAddress.Name)
+	var node *node.Node
+	if monitorAddress == "disable" {
+		// troublor modify ends
+		node = makeFullNode(ctx)
+		startNode(ctx, node)
+		// TODO troublor modify starts
+	} else {
+		monitor := ethmonitor.NewMonitor(role, monitorAddress)
+		node = makeFullNodeWithMonitor(ctx, monitor)
+		startNode(ctx, node)
+		monitor.NotifyNodeStart(node)
+	}
+	// troublor modify ends
 	defer node.Close()
 	startNode(ctx, node)
 	node.Wait()

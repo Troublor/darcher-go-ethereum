@@ -18,11 +18,11 @@ import (
 )
 
 type MiningMonitor struct {
-	role           rpc.Role
-	client         *EthMonitorClient
-	ethMonitorPort int
-	ctx            context.Context
-	cancel         context.CancelFunc
+	role              rpc.Role
+	client            *EthMonitorClient
+	ethMonitorAddress string
+	ctx               context.Context
+	cancel            context.CancelFunc
 
 	// a feed for every new Task
 	newTaskFeed event.Feed
@@ -39,10 +39,10 @@ type MiningMonitor struct {
 	txScheduler TxScheduler
 }
 
-func NewMonitor(role rpc.Role, monitorPort int) *MiningMonitor {
+func NewMonitor(role rpc.Role, monitorAddress string) *MiningMonitor {
 	log.Info("Running as " + strings.ToUpper(fmt.Sprintf("%s", role)) + " node")
 	var scheduler TxScheduler
-	if monitorPort == 0 {
+	if monitorAddress == "" {
 		scheduler = FakeTxScheduler
 		log.Warn("MiningMonitor starts without upstream")
 	} else {
@@ -50,11 +50,11 @@ func NewMonitor(role rpc.Role, monitorPort int) *MiningMonitor {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	m := &MiningMonitor{
-		role:           role,
-		ethMonitorPort: monitorPort,
-		txScheduler:    scheduler,
-		ctx:            ctx,
-		cancel:         cancel,
+		role:              role,
+		ethMonitorAddress: monitorAddress,
+		txScheduler:       scheduler,
+		ctx:               ctx,
+		cancel:            cancel,
 	}
 	return m
 }
@@ -90,10 +90,10 @@ func (m *MiningMonitor) StopMiningTask() {
 
 /* methods called when initializing geth start */
 func (m *MiningMonitor) Start() {
-	if m.ethMonitorPort == 0 {
+	if m.ethMonitorAddress == "" {
 		return
 	}
-	m.client = NewClient(m.role, m.eth, m.ctx, fmt.Sprintf("localhost:%d", m.ethMonitorPort))
+	m.client = NewClient(m.role, m.eth, m.ctx, m.ethMonitorAddress)
 	log.Info("ethmonitor client started")
 
 	// start reverse rpcs

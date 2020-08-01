@@ -115,10 +115,10 @@ var (
 		Name:  "ethmonitor.talker",
 		Usage: "run as talker node",
 	}
-	MonitorPort = cli.IntFlag{
-		Name:  "ethmonitor.port",
-		Usage: "the port of ethMonitor server",
-		Value: 0,
+	MonitorAddress = cli.StringFlag{
+		Name:  "ethmonitor.address",
+		Usage: "the address of ethMonitor server",
+		Value: "",
 	}
 	// troublor modify ends
 	// General settings

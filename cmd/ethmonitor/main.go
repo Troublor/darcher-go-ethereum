@@ -26,9 +26,9 @@ var (
 		Usage: "Logging verbosity: 0=silent, 1=error, 2=warn, 3=info, 4=debug, 5=detail",
 		Value: 3,
 	}
-	DarcherPort = &cli.IntFlag{
-		Name:  "analyzer.port",
-		Value: 0,
+	AnalyzerAddress = &cli.StringFlag{
+		Name:  "analyzer.address",
+		Value: "localhost:1234",
 	}
 )
 
@@ -37,7 +37,7 @@ var (
 		Port,
 		Controller,
 		VerbosityFlag,
-		DarcherPort,
+		AnalyzerAddress,
 	}
 )
 
@@ -77,8 +77,8 @@ func action(ctx *cli.Context) error {
 	case "console":
 		controller = ethmonitor.NewConsoleController()
 	case "darcher":
-		darcherPort := ctx.Int(DarcherPort.Name)
-		controller = ethmonitor.NewDarcherController(darcherPort)
+		analyzerAddr := ctx.String(AnalyzerAddress.Name)
+		controller = ethmonitor.NewDarcherController(analyzerAddr)
 	case "deploy":
 		controller = ethmonitor.NewDeployController()
 	case "robustnessTest":

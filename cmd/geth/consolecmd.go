@@ -91,15 +91,15 @@ func localConsole(ctx *cli.Context) error {
 	if ctx.GlobalBool(utils.EVMAnalyer.Name) {
 		vm.EnableEVMAnalyzer()
 	}
-	monitorPort := ctx.GlobalInt(utils.MonitorPort.Name)
+	monitorAddress := ctx.GlobalString(utils.MonitorAddress.Name)
 	var node *node.Node
-	if monitorPort == -1 {
+	if monitorAddress == "disable" {
 		// troublor modify ends
 		node = makeFullNode(ctx)
 		startNode(ctx, node)
 		// TODO troublor modify starts
 	} else {
-		monitor := ethmonitor.NewMonitor(role, monitorPort)
+		monitor := ethmonitor.NewMonitor(role, monitorAddress)
 		node = makeFullNodeWithMonitor(ctx, monitor)
 		startNode(ctx, node)
 		monitor.NotifyNodeStart(node)

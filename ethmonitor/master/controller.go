@@ -177,8 +177,8 @@ type DarcherController struct {
 	client rpc.EthmonitorControllerServiceClient
 }
 
-func NewDarcherController(darcherPort int) *DarcherController {
-	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", "localhost", darcherPort), grpc.WithInsecure())
+func NewDarcherController(analyzerAddress string) *DarcherController {
+	conn, err := grpc.Dial(analyzerAddress, grpc.WithInsecure())
 	if err != nil {
 		log.Error("Connect to Darcher failed", "err", err)
 		return nil
