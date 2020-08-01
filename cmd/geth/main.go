@@ -383,7 +383,7 @@ func geth(ctx *cli.Context) error {
 	}
 	// troublor modify ends
 	defer node.Close()
-	startNode(ctx, node)
+
 	node.Wait()
 	return nil
 }
