@@ -210,16 +210,11 @@ func (c *Cluster) flushTxs() {
 
 /* sync methods */
 func (c *Cluster) waitUntilSynchronized(timeout time.Duration) error {
-	var doerUpdateCh chan *rpc.ChainHead
-	var doerUpdateSub event.Subscription
-	doerUpdateCh = make(chan *rpc.ChainHead, common.EventCacheSize)
-	doerUpdateSub = c.server.BlockchainStatusService().SubscribeNewChainHead(doerUpdateCh)
-	defer doerUpdateSub.Unsubscribe()
-	var talkerUpdateCh chan *rpc.ChainHead
-	var talkerUpdateSub event.Subscription
-	talkerUpdateCh = make(chan *rpc.ChainHead, common.EventCacheSize)
-	talkerUpdateSub = c.server.BlockchainStatusService().SubscribeNewChainHead(talkerUpdateCh)
-	defer talkerUpdateSub.Unsubscribe()
+	var updateCh chan *rpc.ChainHead
+	var updateSub event.Subscription
+	updateCh = make(chan *rpc.ChainHead, common.EventCacheSize)
+	updateSub = c.server.BlockchainStatusService().SubscribeNewChainHead(updateCh)
+	defer updateSub.Unsubscribe()
 
 	current := c.GetDoerCurrentHead()
 	// short circuit if already synchronized
@@ -233,17 +228,20 @@ wait:
 		select {
 		case <-time.After(timeout):
 			return TimeoutErr
-		case ev := <-doerUpdateCh:
-			log.Debug("doer update", "doerNum", ev.GetNumber(), "doerTd", ev.GetTd(), "talkerNum", c.GetTalkerCurrentHead().GetNumber(), "talkerTd", c.GetTalkerCurrentHead().GetTd())
-			if c.GetDoerCurrentHead().GetTd() == c.GetTalkerCurrentHead().GetTd() {
-				current = ev
-				break wait
-			}
-		case ev := <-talkerUpdateCh:
-			log.Debug("talker update", "talkerNum", ev.GetNumber(), "talkerTd", ev.GetTd(), "doerNum", c.GetDoerCurrentHead().GetNumber(), "doerTd", c.GetDoerCurrentHead().GetTd())
-			if c.GetDoerCurrentHead().Td == c.GetDoerCurrentHead().GetTd() {
-				current = ev
-				break wait
+		case ev := <-updateCh:
+			switch ev.GetRole() {
+			case rpc.Role_DOER:
+				log.Debug("doer update", "doerNum", ev.GetNumber(), "doerTd", ev.GetTd(), "talkerNum", c.GetTalkerCurrentHead().GetNumber(), "talkerTd", c.GetTalkerCurrentHead().GetTd())
+				if c.GetDoerCurrentHead().GetTd() == c.GetTalkerCurrentHead().GetTd() {
+					current = ev
+					break wait
+				}
+			case rpc.Role_TALKER:
+				log.Debug("talker update", "talkerNum", ev.GetNumber(), "talkerTd", ev.GetTd(), "doerNum", c.GetDoerCurrentHead().GetNumber(), "doerTd", c.GetDoerCurrentHead().GetTd())
+				if c.GetDoerCurrentHead().Td == c.GetDoerCurrentHead().GetTd() {
+					current = ev
+					break wait
+				}
 			}
 		}
 	}
