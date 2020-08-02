@@ -72,7 +72,7 @@ func (rrpc *ReverseRPC) Call(arg Identifiable) (reply Identifiable, err error) {
 	}
 	select {
 	case <-timeout:
-		log.Warn("Reverse rpc timeout, retrying")
+		log.Warn("Reverse rpc " + rrpc.name + " timeout, retrying")
 		return rrpc.Call(arg)
 	case reply = <-replyCh:
 		return reply, nil

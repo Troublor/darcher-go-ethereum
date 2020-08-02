@@ -239,6 +239,7 @@ func (m *MiningMonitor) getHeadControlHandler(in *rpc.GetChainHeadControlMsg) (o
 }
 
 func (m *MiningMonitor) addPeerControlHandler(in *rpc.AddPeerControlMsg) (out *rpc.AddPeerControlMsg) {
+	log.Debug("Receive addPeerControlMsg", "enode", in.GetUrl())
 	out = in
 	peerCh := make(chan *p2p.PeerEvent)
 	peerSub := m.node.Server().SubscribeEvents(peerCh)

@@ -71,7 +71,7 @@ type EthMonitorClient struct {
 }
 
 func NewClient(role rpc.Role, eth Ethereum, ctx context.Context, masterAddr string) *EthMonitorClient {
-	conn, err := grpc.Dial(masterAddr, grpc.WithInsecure())
+	conn, err := grpc.Dial(masterAddr, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		log.Error("Connect to monitor master error", "err", err)
 		return nil
