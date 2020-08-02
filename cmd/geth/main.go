@@ -18,6 +18,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/ethereum/go-ethereum/core/vm"
 	ethmonitor_rpc "github.com/ethereum/go-ethereum/ethmonitor/rpc"
@@ -64,6 +65,7 @@ var (
 		utils.EVMAnalyer,
 		utils.TalkerFlag,
 		utils.MonitorAddress,
+		utils.MineWhenTransactionFlag,
 		// troublor modify ends
 		utils.IdentityFlag,
 		utils.UnlockedAccountFlag,
@@ -514,6 +516,20 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 			utils.Fatalf("Failed to start mining: %v", err)
 		}
 	}
+
+	// TODO troublor modify start: mineWhenTx Flag
+	if ctx.GlobalBool(utils.MineWhenTransactionFlag.Name) {
+		var ethereum *eth.Ethereum
+		if err := stack.Service(&ethereum); err != nil {
+			utils.Fatalf("Ethereum service not running: %v", err)
+		}
+		if ethereum.Miner().Monitor == nil {
+			utils.Fatalf("Ethmonitor is not enabled, use --mine or --dev flag to enable mining")
+		}
+		task := ethmonitor.NewTxMonitorTask(context.Background(), ethereum, ethereum.TxPool())
+		err = ethereum.Miner().Monitor.AssignMiningTask(task)
+	}
+	// troublor modify ends
 }
 
 // unlockAccounts unlocks any account specifically requested.

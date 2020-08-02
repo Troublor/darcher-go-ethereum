@@ -120,6 +120,10 @@ var (
 		Usage: "the address of ethMonitor server",
 		Value: "",
 	}
+	MineWhenTransactionFlag = cli.BoolFlag{
+		Name:  "miner.mineWhenTx",
+		Usage: "assign mineWhenTx mining task",
+	}
 	// troublor modify ends
 	// General settings
 	DataDirFlag = DirectoryFlag{
