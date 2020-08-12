@@ -92,23 +92,23 @@ func localConsole(ctx *cli.Context) error {
 		vm.EnableEVMAnalyzer()
 	}
 	monitorAddress := ctx.GlobalString(utils.MonitorAddress.Name)
-	var node *node.Node
+	var stack *node.Node
 	if monitorAddress == "disable" {
 		// troublor modify ends
-		node = makeFullNode(ctx)
-		startNode(ctx, node)
+		stack, backend := makeFullNode(ctx)
+		startNode(ctx, stack, backend)
 		// TODO troublor modify starts
 	} else {
 		monitor := ethmonitor.NewMonitor(role, monitorAddress)
-		node = makeFullNodeWithMonitor(ctx, monitor)
-		startNode(ctx, node)
+		stack, backend = makeFullNodeWithMonitor(ctx, monitor)
+		startNode(ctx, stack, backend)
 		monitor.NotifyNodeStart(node)
 	}
 	// troublor modify ends
-	defer node.Close()
+	defer stack.Close()
 
 	// Attach to the newly started node and start the JavaScript console
-	client, err := node.Attach()
+	client, err := stack.Attach()
 	if err != nil {
 		utils.Fatalf("Failed to attach to the inproc geth: %v", err)
 	}
@@ -215,12 +215,12 @@ func dialRPC(endpoint string) (*rpc.Client, error) {
 // everything down.
 func ephemeralConsole(ctx *cli.Context) error {
 	// Create and start the node based on the CLI flags
-	node := makeFullNode(ctx)
-	startNode(ctx, node)
-	defer node.Close()
+	stack, backend := makeFullNode(ctx)
+	startNode(ctx, stack, backend)
+	defer stack.Close()
 
 	// Attach to the newly started node and start the JavaScript console
-	client, err := node.Attach()
+	client, err := stack.Attach()
 	if err != nil {
 		utils.Fatalf("Failed to attach to the inproc geth: %v", err)
 	}
