@@ -1724,26 +1724,27 @@ func RegisterEthService(stack *node.Node, cfg *eth.Config) ethapi.Backend {
 
 // TODO troublor modify
 // RegisterEthService adds an Ethereum client to the stack.
-func RegisterEthServiceWithMonitor(stack *node.Node, cfg *eth.Config, monitor *ethmonitor.MiningMonitor) {
-	var err error
+func RegisterEthServiceWithMonitor(stack *node.Node, cfg *eth.Config, monitor *ethmonitor.MiningMonitor) ethapi.Backend {
 	if cfg.SyncMode == downloader.LightSync {
-		err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-			return les.New(ctx, cfg)
-		})
+		backend, err := les.New(stack, cfg)
+		if err != nil {
+			Fatalf("Failed to register the Ethereum service: %v", err)
+		}
+		return backend.ApiBackend
 	} else {
-		err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-			fullNode, err := eth.NewWithMonitor(ctx, cfg, monitor)
-			// at this point, eth has finished initialization
-			monitor.Start()
-			if fullNode != nil && cfg.LightServ > 0 {
-				ls, _ := les.NewLesServer(fullNode, cfg)
-				fullNode.AddLesServer(ls)
+		backend, err := eth.NewWithMonitor(stack, cfg, monitor)
+		// at this point, eth has finished initialization
+		monitor.Start()
+		if err != nil {
+			Fatalf("Failed to register the Ethereum service: %v", err)
+		}
+		if cfg.LightServ > 0 {
+			_, err := les.NewLesServer(stack, backend, cfg)
+			if err != nil {
+				Fatalf("Failed to create the LES server: %v", err)
 			}
-			return fullNode, err
-		})
-	}
-	if err != nil {
-		Fatalf("Failed to register the Ethereum service: %v", err)
+		}
+		return backend.APIBackend
 	}
 }
 

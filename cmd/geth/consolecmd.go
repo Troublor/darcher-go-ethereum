@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	ethmonitor_rpc "github.com/ethereum/go-ethereum/ethmonitor/rpc"
 	ethmonitor "github.com/ethereum/go-ethereum/ethmonitor/worker"
+	"github.com/ethereum/go-ethereum/internal/ethapi"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -93,16 +94,17 @@ func localConsole(ctx *cli.Context) error {
 	}
 	monitorAddress := ctx.GlobalString(utils.MonitorAddress.Name)
 	var stack *node.Node
+	var backend ethapi.Backend
 	if monitorAddress == "disable" {
 		// troublor modify ends
-		stack, backend := makeFullNode(ctx)
+		stack, backend = makeFullNode(ctx)
 		startNode(ctx, stack, backend)
 		// TODO troublor modify starts
 	} else {
 		monitor := ethmonitor.NewMonitor(role, monitorAddress)
 		stack, backend = makeFullNodeWithMonitor(ctx, monitor)
 		startNode(ctx, stack, backend)
-		monitor.NotifyNodeStart(node)
+		monitor.NotifyNodeStart(stack)
 	}
 	// troublor modify ends
 	defer stack.Close()

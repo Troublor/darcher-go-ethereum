@@ -372,7 +372,8 @@ func geth(ctx *cli.Context) error {
 		vm.EnableEVMAnalyzer()
 	}
 	monitorAddress := ctx.GlobalString(utils.MonitorAddress.Name)
-	var node *node.Node
+	var stack *node.Node
+	var backend ethapi.Backend
 	if monitorAddress == "disable" {
 		// troublor modify ends
 		stack, backend = makeFullNode(ctx)
@@ -382,7 +383,7 @@ func geth(ctx *cli.Context) error {
 		monitor := ethmonitor.NewMonitor(role, monitorAddress)
 		stack, backend = makeFullNodeWithMonitor(ctx, monitor)
 		startNode(ctx, stack, backend)
-		monitor.NotifyNodeStart(node)
+		monitor.NotifyNodeStart(stack)
 	}
 	// troublor modify ends
 	defer stack.Close()
@@ -501,15 +502,15 @@ func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend) {
 
 	// TODO troublor modify start: mineWhenTx Flag
 	if ctx.GlobalBool(utils.MineWhenTransactionFlag.Name) {
-		var ethereum *eth.Ethereum
-		if err := stack.Service(&ethereum); err != nil {
+		ethBackend, ok := backend.(*eth.EthAPIBackend)
+		if !ok {
 			utils.Fatalf("Ethereum service not running: %v", err)
 		}
-		if ethereum.Miner().Monitor == nil {
+		if ethBackend.Miner().Monitor == nil {
 			utils.Fatalf("Ethmonitor is not enabled, use --mine or --dev flag to enable mining")
 		}
-		task := ethmonitor.NewTxMonitorTask(context.Background(), ethereum, ethereum.TxPool())
-		err = ethereum.Miner().Monitor.AssignMiningTask(task)
+		task := ethmonitor.NewTxMonitorTask(context.Background(), ethBackend, ethBackend.TxPool())
+		err = ethBackend.Miner().Monitor.AssignMiningTask(task)
 	}
 	// troublor modify ends
 }

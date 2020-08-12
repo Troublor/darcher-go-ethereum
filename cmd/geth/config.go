@@ -147,13 +147,12 @@ func enableWhisper(ctx *cli.Context) bool {
 	return false
 }
 
-func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 // TODO troublor modify starts
-func makeFullNodeWithMonitor(ctx *cli.Context, monitor *ethmonitor.MiningMonitor) *node.Node {
+func makeFullNodeWithMonitor(ctx *cli.Context, monitor *ethmonitor.MiningMonitor) (*node.Node, ethapi.Backend) {
 	stack, cfg := makeConfigNode(ctx)
 	// TODO troublor modify
 	monitor.SetNode(stack)
-	utils.RegisterEthServiceWithMonitor(stack, &cfg.Eth, monitor)
+	backend := utils.RegisterEthServiceWithMonitor(stack, &cfg.Eth, monitor)
 	//utils.RegisterEthService(stack, &cfg.Eth)
 
 	// Whisper must be explicitly enabled by specifying at least 1 whisper flag or in dev mode
@@ -173,19 +172,19 @@ func makeFullNodeWithMonitor(ctx *cli.Context, monitor *ethmonitor.MiningMonitor
 	}
 	// Configure GraphQL if requested
 	if ctx.GlobalIsSet(utils.GraphQLEnabledFlag.Name) {
-		utils.RegisterGraphQLService(stack, cfg.Node.GraphQLEndpoint(), cfg.Node.GraphQLCors, cfg.Node.GraphQLVirtualHosts, cfg.Node.HTTPTimeouts)
+		utils.RegisterGraphQLService(stack, backend, cfg.Node)
 	}
 	// Add the Ethereum Stats daemon if requested.
 	if cfg.Ethstats.URL != "" {
-		utils.RegisterEthStatsService(stack, cfg.Ethstats.URL)
+		utils.RegisterEthStatsService(stack, backend, cfg.Ethstats.URL)
 	}
-	return stack
+	return stack, backend
 }
 
 // troublor modify ends
 
 // makeFullNode loads geth configuration and creates the Ethereum backend.
-func func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
+func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 	stack, cfg := makeConfigNode(ctx)
 
 	backend := utils.RegisterEthService(stack, &cfg.Eth)

@@ -226,7 +226,7 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 // TODO troublor modify starts
 // New creates a new Ethereum object (including the
 // initialisation of the common Ethereum object)
-func NewWithMonitor(ctx *node.ServiceContext, config *Config, monitor *ethmonitor.MiningMonitor) (*Ethereum, error) {
+func NewWithMonitor(stack *node.Node, config *Config, monitor *ethmonitor.MiningMonitor) (*Ethereum, error) {
 	// Ensure configuration values are compatible and sane
 	if config.SyncMode == downloader.LightSync {
 		return nil, errors.New("can't run eth.Ethereum in light sync mode, use les.LightEthereum")
@@ -250,7 +250,7 @@ func NewWithMonitor(ctx *node.ServiceContext, config *Config, monitor *ethmonito
 	log.Info("Allocated trie memory caches", "clean", common.StorageSize(config.TrieCleanCache)*1024*1024, "dirty", common.StorageSize(config.TrieDirtyCache)*1024*1024)
 
 	// Assemble the Ethereum object
-	chainDb, err := ctx.OpenDatabaseWithFreezer("chaindata", config.DatabaseCache, config.DatabaseHandles, config.DatabaseFreezer, "eth/db/chaindata/")
+	chainDb, err := stack.OpenDatabaseWithFreezer("chaindata", config.DatabaseCache, config.DatabaseHandles, config.DatabaseFreezer, "eth/db/chaindata/")
 	if err != nil {
 		return nil, err
 	}
@@ -263,15 +263,16 @@ func NewWithMonitor(ctx *node.ServiceContext, config *Config, monitor *ethmonito
 	eth := &Ethereum{
 		config:            config,
 		chainDb:           chainDb,
-		eventMux:          ctx.EventMux,
-		accountManager:    ctx.AccountManager,
-		engine:            CreateConsensusEngine(ctx, chainConfig, &config.Ethash, config.Miner.Notify, config.Miner.Noverify, chainDb),
+		eventMux:          stack.EventMux(),
+		accountManager:    stack.AccountManager(),
+		engine:            CreateConsensusEngine(stack, chainConfig, &config.Ethash, config.Miner.Notify, config.Miner.Noverify, chainDb),
 		closeBloomHandler: make(chan struct{}),
 		networkID:         config.NetworkId,
 		gasPrice:          config.Miner.GasPrice,
 		etherbase:         config.Miner.Etherbase,
 		bloomRequests:     make(chan chan *bloombits.Retrieval),
 		bloomIndexer:      NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
+		p2pServer:         stack.Server(),
 	}
 
 	bcVersion := rawdb.ReadDatabaseVersion(chainDb)
@@ -297,6 +298,8 @@ func NewWithMonitor(ctx *node.ServiceContext, config *Config, monitor *ethmonito
 		}
 		cacheConfig = &core.CacheConfig{
 			TrieCleanLimit:      config.TrieCleanCache,
+			TrieCleanJournal:    stack.ResolvePath(config.TrieCleanCacheJournal),
+			TrieCleanRejournal:  config.TrieCleanCacheRejournal,
 			TrieCleanNoPrefetch: config.NoPrefetch,
 			TrieDirtyLimit:      config.TrieDirtyCache,
 			TrieDirtyDisabled:   config.NoPruning,
@@ -317,7 +320,7 @@ func NewWithMonitor(ctx *node.ServiceContext, config *Config, monitor *ethmonito
 	eth.bloomIndexer.Start(eth.blockchain)
 
 	if config.TxPool.Journal != "" {
-		config.TxPool.Journal = ctx.ResolvePath(config.TxPool.Journal)
+		config.TxPool.Journal = stack.ResolvePath(config.TxPool.Journal)
 	}
 	eth.txPool = core.NewTxPool(config.TxPool, chainConfig, eth.blockchain)
 
@@ -330,26 +333,34 @@ func NewWithMonitor(ctx *node.ServiceContext, config *Config, monitor *ethmonito
 	if eth.protocolManager, err = NewProtocolManager(chainConfig, checkpoint, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb, cacheLimit, config.Whitelist); err != nil {
 		return nil, err
 	}
+
 	monitor.SetEth(eth)
 	// feed tx scheduler to ethapi.EthereumPublicAPI
 	ethapi.SetTxScheduler(monitor.GetTxScheduler())
 	vm.GetEVMMonitorProxy().SetTxErrorNotifier(monitor.GetTxErrorNotifier())
 	eth.miner = miner.NewMinerWithMonitor(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock, monitor)
+
 	eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData))
 
-	eth.APIBackend = &EthAPIBackend{ctx.ExtRPCEnabled(), eth, nil}
-
+	eth.APIBackend = &EthAPIBackend{stack.Config().ExtRPCEnabled(), eth, nil}
 	gpoParams := config.GPO
 	if gpoParams.Default == nil {
 		gpoParams.Default = config.Miner.GasPrice
 	}
 	eth.APIBackend.gpo = gasprice.NewOracle(eth.APIBackend, gpoParams)
 
-	eth.dialCandidates, err = eth.setupDiscovery(&ctx.Config.P2P)
+	eth.dialCandidates, err = eth.setupDiscovery(&stack.Config().P2P)
 	if err != nil {
 		return nil, err
 	}
 
+	// Start the RPC service
+	eth.netRPCService = ethapi.NewPublicNetAPI(eth.p2pServer, eth.NetVersion())
+
+	// Register the backend on the node
+	stack.RegisterAPIs(eth.APIs())
+	stack.RegisterProtocols(eth.Protocols())
+	stack.RegisterLifecycle(eth)
 	return eth, nil
 }
 

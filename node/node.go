@@ -261,7 +261,7 @@ func (n *Node) startNetworking() error {
 	return err
 }
 
-// containsLifecycle checks if 'lfs' contains 'l'.
+// contains checks if 'lfs' contains 'l'.
 func containsLifecycle(lfs []Lifecycle, l Lifecycle) bool {
 	for _, obj := range lfs {
 		if obj == l {

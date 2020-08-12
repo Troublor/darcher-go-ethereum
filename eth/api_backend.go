@@ -329,3 +329,14 @@ func (b *EthAPIBackend) Miner() *miner.Miner {
 func (b *EthAPIBackend) StartMining(threads int) error {
 	return b.eth.StartMining(threads)
 }
+
+// TODO troublor modify starts: add more APIs
+func (b *EthAPIBackend) StopMining() {
+	b.eth.StopMining()
+}
+
+func (b *EthAPIBackend) BlockChain() *core.BlockChain {
+	return b.eth.BlockChain()
+}
+
+// troublor modify ends
