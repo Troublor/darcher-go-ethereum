@@ -119,6 +119,15 @@ var (
 		Usage: "the address of ethMonitor server",
 		Value: "",
 	}
+	RegularMineFlag = cli.BoolFlag{
+		Name:  "miner.regular",
+		Usage: "regularly mine blocks",
+	}
+	RegularMineIntervalFlag = cli.Uint64Flag{
+		Name:  "miner.regular.interval",
+		Usage: "the time interval for regular mine (seconds)",
+		Value: 10,
+	}
 	MineWhenTransactionFlag = cli.BoolFlag{
 		Name:  "miner.mineWhenTx",
 		Usage: "assign mineWhenTx mining task",

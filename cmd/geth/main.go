@@ -59,14 +59,20 @@ var (
 	gitDate   = ""
 	// The app that holds all commands and flags.
 	app = flags.NewApp(gitCommit, gitDate, "the go-ethereum command line interface")
-	// flags that configure the node
-	nodeFlags = []cli.Flag{
-		// TODO troublor modify starts
+
+	// TODO troublor modify starts: flag group
+	ethmonitorFlags = []cli.Flag{
 		utils.EVMAnalyer,
 		utils.TalkerFlag,
 		utils.MonitorAddress,
+		utils.RegularMineFlag,
+		utils.RegularMineIntervalFlag,
 		utils.MineWhenTransactionFlag,
-		// troublor modify ends
+	}
+	// troublor modify ends
+
+	// flags that configure the node
+	nodeFlags = []cli.Flag{
 		utils.IdentityFlag,
 		utils.UnlockedAccountFlag,
 		utils.PasswordFileFlag,
@@ -267,6 +273,7 @@ func init() {
 	app.Flags = append(app.Flags, debug.DeprecatedFlags...)
 	app.Flags = append(app.Flags, whisperFlags...)
 	app.Flags = append(app.Flags, metricsFlags...)
+	app.Flags = append(app.Flags, ethmonitorFlags...)
 
 	app.Before = func(ctx *cli.Context) error {
 		return debug.Setup(ctx)
