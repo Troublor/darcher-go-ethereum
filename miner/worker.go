@@ -592,13 +592,13 @@ func (w *worker) taskLoop() {
 			}
 			// Reject duplicate sealing work due to resubmitting.
 			sealHash := w.engine.SealHash(task.block.Header())
-			log.Info("receiving sealing task", "sealHash", sealHash)
+			log.Debug("receiving sealing task", "sealHash", sealHash)
 			// TODO troublor modify starts
 			prevRWMutex.RLock()
 			// troublor modify ends
 			if sealHash == prev {
 				// TODO troublor modify starts
-				log.Info("reject duplicate sealing work", "sealHash", sealHash)
+				log.Warn("reject duplicate sealing work", "sealHash", sealHash)
 				prevRWMutex.RUnlock()
 				// troublor modify ends
 				continue
@@ -629,7 +629,7 @@ func (w *worker) taskLoop() {
 				log.Warn("Block sealing failed", "err", err)
 			} else /* TODO troublor modify start */
 			{
-				log.Info("Engine sealing", "sealHash", sealHash)
+				log.Debug("Engine sealing", "sealHash", sealHash)
 			}
 			// troublor modify ends
 		case <-w.exitCh:
@@ -646,7 +646,7 @@ func (w *worker) resultLoop() {
 		select {
 		case block := <-w.resultCh:
 			// TODO troublor modify starts
-			log.Info("get sealing result", "sealHash", w.engine.SealHash(block.Header()), "hash", block.Hash())
+			log.Debug("get sealing result", "sealHash", w.engine.SealHash(block.Header()), "hash", block.Hash())
 			// short circuit when mining target has already been achieved
 			if w.monitor != nil {
 				select {
@@ -706,7 +706,7 @@ func (w *worker) resultLoop() {
 				log.Error("Failed writing block to chain", "err", err)
 				continue
 			}
-			log.Info("Successfully sealed new block", "number", block.Number(), "sealhash", sealhash, "hash", hash,
+			log.Debug("Successfully sealed new block", "number", block.Number(), "sealhash", sealhash, "hash", hash,
 				"elapsed", common.PrettyDuration(time.Since(task.createdAt)))
 
 			// Broadcast the block and announce chain insertion event
