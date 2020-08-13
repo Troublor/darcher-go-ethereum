@@ -56,6 +56,12 @@ func NewMonitor(role rpc.Role, monitorAddress string) *MiningMonitor {
 		ctx:               ctx,
 		cancel:            cancel,
 	}
+
+	// subscribe and immediate unsubscribe to set the Type of newTaskFeed
+	ch := make(chan Task, 0)
+	sub := m.newTaskFeed.Subscribe(ch)
+	sub.Unsubscribe()
+
 	return m
 }
 
