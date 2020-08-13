@@ -611,6 +611,16 @@ web3._extend({
 			inputFormatter: [null]
 		}),
 		new web3._extend.Method({
+			name: 'regular',
+			call: 'miner_mineRegularly',
+			params: 1,
+			inputFormatter: [null]
+		}),
+		new web3._extend.Method({
+			name: 'stopRegular',
+			call: 'miner_stopMiningRegularly',
+		}),
+		new web3._extend.Method({
 			name: 'start',
 			call: 'miner_start',
 			params: 1,

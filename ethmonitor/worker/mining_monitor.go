@@ -15,6 +15,8 @@ import (
 	"math/big"
 	"runtime"
 	"strings"
+	"sync"
+	"time"
 )
 
 type MiningMonitor struct {
@@ -33,7 +35,11 @@ type MiningMonitor struct {
 	miner Stoppable
 
 	// current mining task
-	currentTask Task
+	currentTask        Task
+	currentTaskRWMutex sync.RWMutex
+	// regularly mining
+	regularMineTicker     *time.Ticker
+	regularMineTickerDone chan bool
 
 	// tx scheduler to control the SubmitTransaction JSON RPC
 	txScheduler TxScheduler
@@ -71,15 +77,67 @@ func (m *MiningMonitor) AssignMiningTask(task Task) error {
 	m.StopMiningTask()
 
 	// set new task
+	m.currentTaskRWMutex.Lock()
 	m.currentTask = task
+	m.currentTaskRWMutex.Unlock()
 	m.newTaskFeed.Send(task)
 	log.Info("New mining task", "task", task.String())
 	return m.eth.StartMining(runtime.NumCPU())
 }
 
+/**
+MineRegularly tells ethmonitor to regularly mine regardless of the MiningTask assigned.
+*/
+func (m *MiningMonitor) MineRegularly(interval time.Duration) {
+	m.StopMiningRegularly()
+
+	if m.regularMineTickerDone == nil {
+		m.regularMineTickerDone = make(chan bool, 1)
+	}
+
+	m.regularMineTicker = time.NewTicker(interval)
+	go func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		for {
+			select {
+			case <-m.regularMineTickerDone:
+				cancel()
+				return
+			case <-m.regularMineTicker.C:
+				currentTask := m.GetCurrentTask()
+				if currentTask != nil && currentTask != NilTask {
+					log.Info("Regularly mining start", "pause_task", currentTask.String())
+				}
+				m.StopMiningTask()
+				regularTask := NewBudgetWithoutTxTask(ctx, m.eth, 1)
+				_ = m.AssignMiningTask(regularTask)
+				<-regularTask.TargetAchievedCh()
+				if currentTask != nil && currentTask != NilTask {
+					log.Info("Regular mining stop", "resume_task", currentTask.String())
+				}
+			}
+		}
+	}()
+}
+
+/**
+MineRegularly tells ethmonitor to stop regularly mining.
+*/
+func (m *MiningMonitor) StopMiningRegularly() {
+	if m.regularMineTickerDone == nil {
+		m.regularMineTickerDone = make(chan bool, 1)
+	}
+	if m.regularMineTicker != nil {
+		m.regularMineTicker.Stop()
+		m.regularMineTickerDone <- true
+	}
+}
+
 // stop daemon mining task if currentTask is daemon
 // this function is call from outside monitor to stop current running daemon mining task
 func (m *MiningMonitor) StopMiningTask() {
+	m.currentTaskRWMutex.Lock()
+	defer m.currentTaskRWMutex.Unlock()
 	if daemonTask, ok := m.currentTask.(DaemonTask); ok {
 		daemonTask.Stop()
 	}
@@ -500,6 +558,8 @@ func (m *MiningMonitor) SubscribeNewTask(ch chan<- Task) event.Subscription {
 }
 
 func (m *MiningMonitor) GetCurrentTask() Task {
+	m.currentTaskRWMutex.RLock()
+	defer m.currentTaskRWMutex.RUnlock()
 	if m.currentTask != nil {
 		return m.currentTask
 	} else {
@@ -525,6 +585,8 @@ func (m *MiningMonitor) GetTxErrorNotifier() func(msg *rpc.TxErrorMsg) error {
 }
 
 func (m *MiningMonitor) IsTxAllowed(hash common.Hash) bool {
+	m.currentTaskRWMutex.RLock()
+	defer m.currentTaskRWMutex.RUnlock()
 	if m.currentTask == nil {
 		// if there is no mining task, do not allow any transaction
 		return false

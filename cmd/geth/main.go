@@ -507,7 +507,7 @@ func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend) {
 		}
 	}
 
-	// TODO troublor modify start: mineWhenTx Flag
+	// TODO troublor modify start: mining related flags
 	if ctx.GlobalBool(utils.MineWhenTransactionFlag.Name) {
 		ethBackend, ok := backend.(*eth.EthAPIBackend)
 		if !ok {
@@ -518,6 +518,18 @@ func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend) {
 		}
 		task := ethmonitor.NewTxMonitorTask(context.Background(), ethBackend, ethBackend.TxPool())
 		err = ethBackend.Miner().Monitor.AssignMiningTask(task)
+	}
+	if ctx.GlobalBool(utils.RegularMineFlag.Name) {
+		ethBackend, ok := backend.(*eth.EthAPIBackend)
+		if !ok {
+			utils.Fatalf("Ethereum service not running: %v", err)
+		}
+		if ethBackend.Miner().Monitor == nil {
+			utils.Fatalf("Ethmonitor is not enabled, use --mine or --dev flag to enable mining")
+		}
+		interval := ctx.GlobalUint64(utils.RegularMineIntervalFlag.Name)
+		ethBackend.Miner().Monitor.MineRegularly(time.Duration(interval) * time.Second)
+		log.Info("Mining regularly", "interval", fmt.Sprintf("%d second(s)", interval))
 	}
 	// troublor modify ends
 }
