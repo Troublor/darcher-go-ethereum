@@ -233,6 +233,19 @@ var AppHelpFlagGroups = []flags.FlagGroup{
 			utils.LegacyGraphQLPortFlag,
 		}, debug.DeprecatedFlags...),
 	},
+	// TODO troublor modify starts: new flag group
+	{
+		Name: "Ethmonitor",
+		Flags: []cli.Flag{
+			utils.EVMAnalyer,
+			utils.TalkerFlag,
+			utils.MonitorAddress,
+			utils.RegularMineFlag,
+			utils.RegularMineIntervalFlag,
+			utils.MineWhenTransactionFlag,
+		},
+	},
+	// troublor modify ends
 	{
 		Name: "MISC",
 		Flags: []cli.Flag{
