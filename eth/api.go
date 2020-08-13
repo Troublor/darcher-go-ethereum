@@ -166,6 +166,22 @@ func (api *PrivateMinerAPI) MineBlocksExceptTx(budget uint64, txHash string) (st
 	return fmt.Sprintf("mine %d blocks except transaction %s", budget, txHash), err
 }
 
+func (api *PrivateMinerAPI) MineRegularly(interval uint64) (string, error) {
+	if api.e.miner.Monitor == nil {
+		return "", fmt.Errorf("miner.regular() is disabled when monitor is disabled")
+	}
+	api.e.miner.Monitor.MineRegularly(time.Duration(interval) * time.Second)
+	return fmt.Sprintf("mine regularly with interval %d seconds", interval), nil
+}
+
+func (api *PrivateMinerAPI) StopMiningRegularly() (string, error) {
+	if api.e.miner.Monitor == nil {
+		return "", fmt.Errorf("miner.stopRegular() is disabled when monitor is disabled")
+	}
+	api.e.miner.Monitor.StopMiningRegularly()
+	return fmt.Sprintf("stop mining regularly"), nil
+}
+
 // troublor modify ends
 
 // Start starts the miner with the given number of threads. If threads is nil,

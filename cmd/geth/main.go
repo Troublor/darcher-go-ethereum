@@ -59,14 +59,20 @@ var (
 	gitDate   = ""
 	// The app that holds all commands and flags.
 	app = flags.NewApp(gitCommit, gitDate, "the go-ethereum command line interface")
-	// flags that configure the node
-	nodeFlags = []cli.Flag{
-		// TODO troublor modify starts
+
+	// TODO troublor modify starts: flag group
+	ethmonitorFlags = []cli.Flag{
 		utils.EVMAnalyer,
 		utils.TalkerFlag,
 		utils.MonitorAddress,
+		utils.RegularMineFlag,
+		utils.RegularMineIntervalFlag,
 		utils.MineWhenTransactionFlag,
-		// troublor modify ends
+	}
+	// troublor modify ends
+
+	// flags that configure the node
+	nodeFlags = []cli.Flag{
 		utils.IdentityFlag,
 		utils.UnlockedAccountFlag,
 		utils.PasswordFileFlag,
@@ -267,6 +273,7 @@ func init() {
 	app.Flags = append(app.Flags, debug.DeprecatedFlags...)
 	app.Flags = append(app.Flags, whisperFlags...)
 	app.Flags = append(app.Flags, metricsFlags...)
+	app.Flags = append(app.Flags, ethmonitorFlags...)
 
 	app.Before = func(ctx *cli.Context) error {
 		return debug.Setup(ctx)
@@ -500,7 +507,7 @@ func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend) {
 		}
 	}
 
-	// TODO troublor modify start: mineWhenTx Flag
+	// TODO troublor modify start: mining related flags
 	if ctx.GlobalBool(utils.MineWhenTransactionFlag.Name) {
 		ethBackend, ok := backend.(*eth.EthAPIBackend)
 		if !ok {
@@ -511,6 +518,18 @@ func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend) {
 		}
 		task := ethmonitor.NewTxMonitorTask(context.Background(), ethBackend, ethBackend.TxPool())
 		err = ethBackend.Miner().Monitor.AssignMiningTask(task)
+	}
+	if ctx.GlobalBool(utils.RegularMineFlag.Name) {
+		ethBackend, ok := backend.(*eth.EthAPIBackend)
+		if !ok {
+			utils.Fatalf("Ethereum service not running: %v", err)
+		}
+		if ethBackend.Miner().Monitor == nil {
+			utils.Fatalf("Ethmonitor is not enabled, use --mine or --dev flag to enable mining")
+		}
+		interval := ctx.GlobalUint64(utils.RegularMineIntervalFlag.Name)
+		ethBackend.Miner().Monitor.MineRegularly(time.Duration(interval) * time.Second)
+		log.Info("Mining regularly", "interval", fmt.Sprintf("%d second(s)", interval))
 	}
 	// troublor modify ends
 }
