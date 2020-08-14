@@ -17,6 +17,7 @@
 package core
 
 import (
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -136,10 +137,17 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// TODO troublor modify starts:
 	vm.GetEVMMonitorProxy().AfterTransaction(tx, receipt)
 	if result.Failed() {
+		description := result.Err.Error()
+		if result.Revert() != nil {
+			reason, err := abi.UnpackRevert(result.Revert())
+			if err == nil {
+				description += ":" + reason
+			}
+		}
 		msg := &rpc.TxErrorMsg{
 			Hash:        tx.Hash().Hex(),
 			Type:        rpc.TxErrorType_REVERT,
-			Description: result.Err.Error(),
+			Description: description,
 		}
 		vm.GetEVMMonitorProxy().NotifyTxError(msg)
 	}
