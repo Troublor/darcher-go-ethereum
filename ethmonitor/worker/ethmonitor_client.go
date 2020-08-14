@@ -273,6 +273,7 @@ func (c *EthMonitorClient) _notifyNodeStart(node *node.Node) error {
 Notify TxError (rpc.TxErrorMsg) to ethmonitor.master, this should be called when tx execution throws an error
 */
 func (c *EthMonitorClient) NotifyTxError(txErrorMsg *rpc.TxErrorMsg) error {
+	log.Warn("Transaction execution failed", "txHash", txErrorMsg.Hash, "err", txErrorMsg.Description)
 	c.notifyTxErrorMutex.Lock()
 	defer c.notifyTxErrorMutex.Unlock()
 	return c._notifyTxError(txErrorMsg)

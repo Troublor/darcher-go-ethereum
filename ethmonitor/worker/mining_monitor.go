@@ -579,6 +579,7 @@ func (m *MiningMonitor) GetTxErrorNotifier() func(msg *rpc.TxErrorMsg) error {
 		return m.client.NotifyTxError
 	} else {
 		return func(msg *rpc.TxErrorMsg) error {
+			log.Warn("Transaction execution failed", "txHash", msg.Hash, "err", msg.Description)
 			return nil
 		}
 	}
