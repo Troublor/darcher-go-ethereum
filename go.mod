@@ -8,6 +8,7 @@ require (
 	github.com/Azure/go-autorest/autorest/adal v0.8.0 // indirect
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
 	github.com/VictoriaMetrics/fastcache v1.5.7
+	github.com/Workiva/go-datastructures v1.0.52
 	github.com/aristanetworks/goarista v0.0.0-20170210015632-ea17b1a17847
 	github.com/aws/aws-sdk-go v1.25.48
 	github.com/btcsuite/btcd v0.0.0-20171128150713-2e60448ffcc6
@@ -22,6 +23,7 @@ require (
 	github.com/fatih/color v1.3.0
 	github.com/fjl/memsize v0.0.0-20180418122429-ca190fb6ffbc
 	github.com/gballet/go-libpcsclite v0.0.0-20190607065134-2772fd86a8ff
+	github.com/getlantern/deepcopy v0.0.0-20160317154340-7f45deb8130a
 	github.com/go-ole/go-ole v1.2.1 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.2+incompatible // indirect
 	github.com/go-stack/stack v1.8.0
@@ -45,6 +47,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.2-0.20190409134802-7e037d187b0c
 	github.com/pborman/uuid v0.0.0-20170112150404-1b00554d8222
 	github.com/peterh/liner v1.1.1-0.20190123174540-a2c9a5303de7
+	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/prometheus/tsdb v0.6.2-0.20190402121629-4f204dcbc150
 	github.com/rjeczalik/notify v0.9.1
 	github.com/rs/cors v0.0.0-20160617231935-a62a804a8a00
@@ -58,11 +61,12 @@ require (
 	github.com/tyler-smith/go-bip39 v1.0.1-0.20181017060643-dbb3b84ba2ef
 	github.com/wsddn/go-ecdh v0.0.0-20161211032359-48726bab9208
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
-	golang.org/x/net v0.0.0-20200822124328-c89045814202 // indirect
-	golang.org/x/sync v0.0.0-20181108010431-42b317875d0f
+	golang.org/x/net v0.0.0-20200822124328-c89045814202
 	golang.org/x/sys v0.0.0-20200824131525-c12d262b63d8
 	golang.org/x/text v0.3.3
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
+	google.golang.org/grpc v1.32.0
+	google.golang.org/protobuf v1.23.0
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
 	gopkg.in/olebedev/go-duktape.v3 v3.0.0-20200619000410-60c24ae608a6
 	gopkg.in/urfave/cli.v1 v1.20.0
