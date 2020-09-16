@@ -386,3 +386,63 @@ func (c *RobustnessTestController) TxErrorHook(txError *rpc.TxErrorMsg) {
 func (c *RobustnessTestController) ContractVulnerabilityHook(vulReport *rpc.ContractVulReport) {
 	return
 }
+
+type TraverseController struct {
+	revertedTxs map[string]bool
+}
+
+func NewTraverseController() *TraverseController {
+	return &TraverseController{revertedTxs: make(map[string]bool)}
+}
+
+func (c *TraverseController) SelectTxToTraverse(txs []*Transaction) (tx *Transaction) {
+	return txs[0]
+}
+
+func (c *TraverseController) TxReceivedHook(txHash string) {
+	log.Info("Tx received", "tx", txHash)
+}
+
+func (c *TraverseController) OnStateChange(txHash string, fromState rpc.TxState, toState rpc.TxState) {
+	log.Info("Tx state change", "tx", txHash, "from", fromState, "to", toState)
+	if fromState == rpc.TxState_EXECUTED && toState == rpc.TxState_PENDING {
+		c.revertedTxs[txHash] = true
+	}
+}
+
+func (c *TraverseController) PivotReachedHook(txHash string, currentState rpc.TxState) (nextState rpc.TxState, suspend bool) {
+	switch currentState {
+	case rpc.TxState_CREATED:
+		return rpc.TxState_PENDING, false
+	case rpc.TxState_PENDING:
+		return rpc.TxState_EXECUTED, false
+	case rpc.TxState_EXECUTED:
+		if _, ok := c.revertedTxs[txHash]; ok {
+			// already reverted
+			return rpc.TxState_CONFIRMED, false
+		} else {
+			return rpc.TxState_PENDING, false
+		}
+	case rpc.TxState_CONFIRMED:
+		return currentState, false
+	case rpc.TxState_DROPPED:
+		return rpc.TxState_DROPPED, false
+	}
+	return rpc.TxState_CONFIRMED, false
+}
+
+func (c *TraverseController) TxFinishedHook(txHash string) {
+	log.Info("Tx finished", "tx", txHash)
+}
+
+func (c *TraverseController) TxResumeHook(txHash string) {
+
+}
+
+func (c *TraverseController) TxErrorHook(txError *rpc.TxErrorMsg) {
+	log.Error("Tx execution error", "err", txError.GetDescription())
+}
+
+func (c *TraverseController) ContractVulnerabilityHook(vulReport *rpc.ContractVulReport) {
+
+}

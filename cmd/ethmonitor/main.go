@@ -83,6 +83,8 @@ func action(ctx *cli.Context) error {
 		controller = ethmonitor.NewDeployController()
 	case "robustnessTest":
 		controller = ethmonitor.NewRobustnessTestController()
+	case "traverse":
+		controller = ethmonitor.NewTraverseController()
 	}
 	var err error
 	if port == 0 {
