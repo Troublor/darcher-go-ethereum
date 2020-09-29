@@ -313,7 +313,6 @@ func (d *DarcherController) TxFinishedHook(txHash string) {
 		d.fallback.TxFinishedHook(txHash)
 		return
 	}
-	d.txStates[txHash] = rpc.TxState_CREATED
 	_, err := d.client.NotifyTxFinished(d.ctx, &rpc.TxFinishedMsg{Hash: txHash})
 	if err != nil {
 		log.Error("DarcherController RPC error", "method", "NotifyTxFinished", "err", err)
@@ -324,7 +323,18 @@ func (d *DarcherController) TxFinishedHook(txHash string) {
 }
 
 func (d *DarcherController) TxResumeHook(txHash string) {
-	return
+	if d.connectionStatus.Load() != DarcherConnected {
+		// if Darcher is disconnected, use fallback controller
+		d.fallback.TxResumeHook(txHash)
+		return
+	}
+	_, err := d.client.NotifyTxTraverseStart(d.ctx, &rpc.TxTraverseStartMsg{Hash: txHash})
+	if err != nil {
+		log.Error("DarcherController RPC error", "method", "NotifyTxTraverseStart", "err", err)
+		log.Warn("Fallback to TrivialController")
+		d.connectionStatus.Store(DarcherDisconnected)
+		d.fallback.TxFinishedHook(txHash)
+	}
 }
 
 func (d *DarcherController) OnStateChange(txHash string, currentState rpc.TxState, nextState rpc.TxState) {
@@ -333,7 +343,7 @@ func (d *DarcherController) OnStateChange(txHash string, currentState rpc.TxStat
 		d.fallback.OnStateChange(txHash, currentState, nextState)
 		return
 	}
-	d.txStates[txHash] = rpc.TxState_CREATED
+	d.txStates[txHash] = nextState
 	_, err := d.client.NotifyTxStateChangeMsg(d.ctx, &rpc.TxStateChangeMsg{
 		Hash: txHash,
 		From: currentState,
