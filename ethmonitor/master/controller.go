@@ -11,6 +11,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 )
 
 type TxController interface {
@@ -170,29 +172,90 @@ func (c *ConsoleController) ContractVulnerabilityHook(vulReport *rpc.ContractVul
 	log.Error("Contract vulnerability detected", "contract", vulReport.GetAddress(), "tx", common.PrettifyHash(vulReport.GetTxHash()), "vul", vulReport.GetType().String())
 }
 
+// Darcher Controller use upstream Darcher to control the tx lifecycle.
+// If connection to upstream is broken, it will try to reconnect and meanwhile fallback to TrivialController
 type DarcherController struct {
 	txStates map[string]rpc.TxState
 
-	ctx    context.Context
-	client rpc.EthmonitorControllerServiceClient
+	ctx             context.Context
+	analyzerAddress string
+	client          rpc.EthmonitorControllerServiceClient
+
+	connectionStatusMutex sync.Mutex
+	connectionStatus      string // if not connected, use the fallback controller
+	fallback              TxController
 }
 
+const (
+	DarcherConnected    = "connected"
+	DarcherConnecting   = "connecting"
+	DarcherDisconnected = "disconnected"
+)
+
 func NewDarcherController(analyzerAddress string) *DarcherController {
-	conn, err := grpc.Dial(analyzerAddress, grpc.WithInsecure())
+	// parent context is not used for now, may make use of it in the future
+	ctx := context.Background()
+	connectionStatus := DarcherConnected
+	timeoutCtx, _ := context.WithTimeout(ctx, time.Second)
+	conn, err := grpc.DialContext(timeoutCtx, analyzerAddress, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		log.Error("Connect to Darcher failed", "err", err)
-		return nil
+		log.Warn("Fallback to TrivialController")
+		connectionStatus = DarcherDisconnected
+	} else {
+		log.Info("Connected to Darcher", "address", analyzerAddress)
 	}
-	log.Info("Connected to Darcher")
-	return &DarcherController{
+	controller := &DarcherController{
 		txStates: make(map[string]rpc.TxState),
 
-		ctx:    context.Background(),
-		client: rpc.NewEthmonitorControllerServiceClient(conn),
+		ctx:             ctx,
+		analyzerAddress: analyzerAddress,
+		client:          rpc.NewEthmonitorControllerServiceClient(conn),
+
+		connectionStatus: connectionStatus,
+		fallback:         &TrivialController{},
+	}
+	// start a goroutine to reconnect
+	go controller.connectionLoop()
+	return controller
+}
+
+func (d *DarcherController) connectionLoop() {
+	for {
+		select {
+		case <-d.ctx.Done():
+			break
+		default:
+			d.connectionStatusMutex.Lock()
+			if d.connectionStatus == DarcherConnected || d.connectionStatus == DarcherConnecting {
+				d.connectionStatusMutex.Unlock()
+				time.Sleep(time.Second)
+			} else if d.connectionStatus == DarcherDisconnected {
+				log.Info("Reconnecting Darcher", "address", d.analyzerAddress)
+				timeoutCtx, _ := context.WithTimeout(d.ctx, 10*time.Second)
+				conn, err := grpc.DialContext(timeoutCtx, d.analyzerAddress, grpc.WithInsecure(), grpc.WithBlock())
+				if err != nil {
+					log.Error("Reconnect to Darcher failed", "address", d.analyzerAddress, "err", err)
+					time.Sleep(5 * time.Second)
+					d.connectionStatus = DarcherDisconnected
+				} else {
+					d.client = rpc.NewEthmonitorControllerServiceClient(conn)
+					log.Info("Darcher reconnected")
+					d.connectionStatus = DarcherConnecting
+				}
+				d.connectionStatusMutex.Unlock()
+			}
+		}
 	}
 }
 
 func (d *DarcherController) SelectTxToTraverse(txs []*Transaction) (tx *Transaction) {
+	d.connectionStatusMutex.Lock()
+	defer d.connectionStatusMutex.Unlock()
+	if d.connectionStatus != DarcherConnected {
+		// if Darcher is disconnected, use fallback controller
+		return d.fallback.SelectTxToTraverse(txs)
+	}
 	txHashes := make([]string, len(txs))
 	m := make(map[string]*Transaction)
 	for i, tx := range txs {
@@ -203,39 +266,72 @@ func (d *DarcherController) SelectTxToTraverse(txs []*Transaction) (tx *Transact
 		CandidateHashes: txHashes,
 	})
 	if err != nil {
-		log.Error("SelectTx RPC error", "err", err)
-		return txs[0]
+		log.Error("DarcherController RPC error", "method", "SelectTx", "err", err)
+		log.Warn("Fallback to TrivialController")
+		d.connectionStatus = DarcherDisconnected
+		return d.fallback.SelectTxToTraverse(txs)
 	}
 	return m[reply.Selection]
 
 }
 
 func (d *DarcherController) TxReceivedHook(txHash string) {
+	d.connectionStatusMutex.Lock()
+	defer d.connectionStatusMutex.Unlock()
+	if d.connectionStatus == DarcherDisconnected {
+		// if Darcher is disconnected, use fallback controller
+		d.fallback.TxReceivedHook(txHash)
+		return
+	} else if d.connectionStatus == DarcherConnecting {
+		// if Darcher is reconnected ready, set the status as connected
+		d.connectionStatus = DarcherConnected
+	}
 	d.txStates[txHash] = rpc.TxState_CREATED
 	_, err := d.client.NotifyTxReceived(d.ctx, &rpc.TxReceivedMsg{Hash: txHash})
 	if err != nil {
-		log.Error("NotifyTxReceived RPC error", "err", err)
+		log.Error("DarcherController RPC error", "method", "TxReceiveHook", "err", err)
+		log.Warn("Fallback to TrivialController")
+		d.connectionStatus = DarcherDisconnected
+		d.fallback.TxReceivedHook(txHash)
 	}
 }
 
 func (d *DarcherController) PivotReachedHook(txHash string, currentState rpc.TxState) (nextState rpc.TxState, suspend bool) {
+	d.connectionStatusMutex.Lock()
+	defer d.connectionStatusMutex.Unlock()
+	if d.connectionStatus != DarcherConnected {
+		// if Darcher is disconnected, use fallback controller
+		return d.fallback.PivotReachedHook(txHash, currentState)
+	}
 	reply, err := d.client.AskForNextState(d.ctx, &rpc.TxStateControlMsg{
 		Hash:         txHash,
 		CurrentState: currentState,
 	})
 	if err != nil {
-		log.Error("AskForNextState RPC error", "err", err)
-		return rpc.TxState_CONFIRMED, false
+		log.Error("DarcherController RPC error", "method", "AskForNextState", "err", err)
+		log.Warn("Fallback to TrivialController")
+		d.connectionStatus = DarcherDisconnected
+		return d.fallback.PivotReachedHook(txHash, currentState)
 	}
 	return reply.GetNextState(), false
 
 }
 
 func (d *DarcherController) TxFinishedHook(txHash string) {
+	d.connectionStatusMutex.Lock()
+	defer d.connectionStatusMutex.Unlock()
+	if d.connectionStatus != DarcherConnected {
+		// if Darcher is disconnected, use fallback controller
+		d.fallback.TxFinishedHook(txHash)
+		return
+	}
 	d.txStates[txHash] = rpc.TxState_CREATED
 	_, err := d.client.NotifyTxFinished(d.ctx, &rpc.TxFinishedMsg{Hash: txHash})
 	if err != nil {
-		log.Error("NotifyTxFinished RPC error", "err", err)
+		log.Error("DarcherController RPC error", "method", "NotifyTxFinished", "err", err)
+		log.Warn("Fallback to TrivialController")
+		d.connectionStatus = DarcherDisconnected
+		d.fallback.TxFinishedHook(txHash)
 	}
 }
 
@@ -244,6 +340,13 @@ func (d *DarcherController) TxResumeHook(txHash string) {
 }
 
 func (d *DarcherController) OnStateChange(txHash string, currentState rpc.TxState, nextState rpc.TxState) {
+	d.connectionStatusMutex.Lock()
+	defer d.connectionStatusMutex.Unlock()
+	if d.connectionStatus != DarcherConnected {
+		// if Darcher is disconnected, use fallback controller
+		d.fallback.OnStateChange(txHash, currentState, nextState)
+		return
+	}
 	d.txStates[txHash] = rpc.TxState_CREATED
 	_, err := d.client.NotifyTxStateChangeMsg(d.ctx, &rpc.TxStateChangeMsg{
 		Hash: txHash,
@@ -251,21 +354,44 @@ func (d *DarcherController) OnStateChange(txHash string, currentState rpc.TxStat
 		To:   nextState,
 	})
 	if err != nil {
-		log.Error("NotifyTxStateChangeMsg RPC error", "err", err)
+		log.Error("DarcherController RPC error", "method", "NotifyTxStateChangeMsg", "err", err)
+		log.Warn("Fallback to TrivialController")
+		d.connectionStatus = DarcherDisconnected
+		d.fallback.OnStateChange(txHash, currentState, nextState)
 	}
 }
 
 func (d *DarcherController) TxErrorHook(txError *rpc.TxErrorMsg) {
+	d.connectionStatusMutex.Lock()
+	defer d.connectionStatusMutex.Unlock()
+	if d.connectionStatus != DarcherConnected {
+		// if Darcher is disconnected, use fallback controller
+		d.fallback.TxErrorHook(txError)
+		return
+	}
 	_, err := d.client.NotifyTxError(d.ctx, txError)
 	if err != nil {
-		log.Error("NotifyTxError RPC error", "err", err)
+		log.Error("DarcherController RPC error", "method", "NotifyTxError", "err", err)
+		log.Warn("Fallback to TrivialController")
+		d.connectionStatus = DarcherDisconnected
+		d.fallback.TxErrorHook(txError)
 	}
 }
 
 func (d *DarcherController) ContractVulnerabilityHook(vulReport *rpc.ContractVulReport) {
+	d.connectionStatusMutex.Lock()
+	defer d.connectionStatusMutex.Unlock()
+	if d.connectionStatus != DarcherConnected {
+		// if Darcher is disconnected, use fallback controller
+		d.fallback.ContractVulnerabilityHook(vulReport)
+		return
+	}
 	_, err := d.client.NotifyContractVulnerability(d.ctx, vulReport)
 	if err != nil {
-		log.Error("NotifyContractVulnerability RPC error", "err", err)
+		log.Error("DarcherController RPC error", "method", "NotifyContractVulnerability", "err", err)
+		log.Warn("Fallback to TrivialController")
+		d.connectionStatus = DarcherDisconnected
+		d.fallback.ContractVulnerabilityHook(vulReport)
 	}
 }
 
