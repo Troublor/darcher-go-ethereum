@@ -34,6 +34,7 @@ func NewMonitor(txController TxController, config ClusterConfig) *EthMonitor {
 				m[txs[i]] = candidate.(*Traverser)
 			}
 			selectedTx := txController.SelectTxToTraverse(txs)
+			log.Debug("Transaction is selected from pool", "tx", selectedTx.PrettyHash())
 			return m[selectedTx]
 		}),
 	}
@@ -123,6 +124,7 @@ func (m *EthMonitor) txErrorLoop() {
 		txError := <-txErrorCh
 		if txError != nil {
 			m.txController.TxErrorHook(txError)
+			log.Debug("Transaction error found", "tx", txError.GetHash(), "err", txError.GetDescription())
 		}
 	}
 }

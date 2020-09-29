@@ -26,6 +26,7 @@ func NewTraverser(cluster *Cluster, tx *Transaction, controller TxController) *T
 	}
 
 	traverser.controller.TxReceivedHook(tx.Hash())
+	log.Debug("Transaction received", "tx", tx.PrettyHash())
 	go traverser.notifyTxStateChangeLoop()
 
 	return traverser
@@ -38,6 +39,7 @@ func (t *Traverser) notifyTxStateChangeLoop() {
 	for {
 		select {
 		case change := <-changeCh:
+			log.Debug("Transaction state change", "tx", t.tx.PrettyHash(), "from", change.From, "to", change.To)
 			t.controller.OnStateChange(t.tx.Hash(), change.From, change.To)
 			if t.tx.HasFinalized() {
 				return
@@ -63,13 +65,17 @@ func (t *Traverser) ResumeTraverse() {
 	// this may block, controlled by the controller
 	t.controller.TxResumeHook(t.tx.Hash())
 
+	log.Debug("Transaction resumed", "tx", t.tx.PrettyHash())
+
 	// loop until the tx is confirmed or suspend
 	for !t.tx.HasFinalized() {
 		nextState, suspend := t.controller.PivotReachedHook(t.tx.Hash(), t.tx.State())
 		if suspend {
 			// suspend the tx life cycle traverse
+			log.Debug("Transaction suspended", "tx", t.tx.PrettyHash())
 			return
 		}
+		log.Debug("Transaction state transition", "tx", t.tx.PrettyHash(), "from", t.tx.State(), "to", nextState)
 		err := t.transitStateTo(nextState)
 		if err != nil {
 			log.Error("Tx transit state error", "tx", t.tx.PrettyHash(), "err", err)
@@ -79,6 +85,7 @@ func (t *Traverser) ResumeTraverse() {
 
 	// retrieve contract vulnerability reports and call controller.ContractVulnerabilityHook
 	reports := t.cluster.GetContractVulnerabilityReports(t.tx.Hash())
+	log.Debug("Contract vulnerability reports fetched", "count", len(reports))
 	if len(reports) > 0 {
 		// call hook if there is vul report
 		for _, report := range reports {
