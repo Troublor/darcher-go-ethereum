@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/local/bin/bash
 # docker context should be darcher-go-ethereum root
 
 DARCHER_GO_ETHEREUM_PATH=../../../
