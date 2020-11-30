@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # docker context should be darcher-go-ethereum root
 
 DIR=$( dirname "${BASH_SOURCE[0]}" )
