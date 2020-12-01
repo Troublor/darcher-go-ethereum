@@ -1740,6 +1740,7 @@ func RegisterEthServiceWithMonitor(stack *node.Node, cfg *eth.Config, monitor *e
 		backend, err := eth.NewWithMonitor(stack, cfg, monitor)
 		// at this point, eth has finished initialization
 		monitor.Start()
+		vm.GetEVMMonitorProxy().SetTxErrorNotifier(monitor.GetTxErrorNotifier())
 		if err != nil {
 			Fatalf("Failed to register the Ethereum service: %v", err)
 		}
