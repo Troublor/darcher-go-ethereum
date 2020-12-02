@@ -213,7 +213,7 @@ func (t *Traverser) Execute() error {
 	case block := <-doneCh:
 		log.Debug("Transaction has been executed on Doer", "tx", t.tx.PrettyHash(), "number", block.Number)
 	case err := <-errCh:
-		log.Error("Schedule tx error", "err", err, "tx", t.tx.PrettyHash())
+		log.Error("Execute tx error", "err", err, "tx", t.tx.PrettyHash())
 		return err
 	}
 	t.tx.WaitForState(rpc.TxState_EXECUTED)

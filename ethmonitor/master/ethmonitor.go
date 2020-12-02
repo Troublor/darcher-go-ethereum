@@ -75,6 +75,8 @@ func (m *EthMonitor) newTxLoop() {
 			continue
 		}
 
+		log.Debug("Create new traverser for transaction", "tx", ev.Hash)
+
 		newHeadCh := make(chan *rpc.ChainHead, 10)
 		newSideCh := make(chan *rpc.ChainSide, 10)
 		newTxCh := make(chan *rpc.Tx, 10)
