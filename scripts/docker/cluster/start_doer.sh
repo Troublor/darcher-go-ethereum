@@ -8,7 +8,7 @@ exec $GETH --datadir $BLOCKCHAIN_DIR/doer \
       --nousb \
       --ipcdisable \
       --port 30303 \
-      --http --http.api miner,admin,eth,txpool,net --http.addr 0.0.0.0 --http.port 8545 --http.corsdomain="*" --http.vhosts '*' \
+      --http --http.api web3,miner,admin,eth,txpool,net --http.addr 0.0.0.0 --http.port 8545 --http.corsdomain="*" --http.vhosts '*' \
       --ws --ws.api miner,admin,eth,txpool,net --ws.addr 0.0.0.0 --wsport 8546 --wsorigins "*" \
       --syncmode full \
       --graphql \
