@@ -26,9 +26,6 @@ type MiningMonitor struct {
 	ctx               context.Context
 	cancel            context.CancelFunc
 
-	alreadySeenBlockHashesMutex sync.Mutex
-	alreadySeenBlockHashes      []common.Hash
-
 	// a feed for every new Task
 	newTaskFeed event.Feed
 
@@ -59,12 +56,11 @@ func NewMonitor(role rpc.Role, monitorAddress string) *MiningMonitor {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	m := &MiningMonitor{
-		role:                   role,
-		ethMonitorAddress:      monitorAddress,
-		txScheduler:            scheduler,
-		ctx:                    ctx,
-		cancel:                 cancel,
-		alreadySeenBlockHashes: make([]common.Hash, 0),
+		role:              role,
+		ethMonitorAddress: monitorAddress,
+		txScheduler:       scheduler,
+		ctx:               ctx,
+		cancel:            cancel,
 	}
 
 	// subscribe and immediate unsubscribe to set the Type of newTaskFeed
@@ -168,16 +164,6 @@ func (m *MiningMonitor) Start() {
 	err := m.startReverseRPCs()
 	if err != nil {
 		log.Error("Serve reverse RPC error", "err", err)
-	}
-	m.alreadySeenBlockHashesMutex.Lock()
-	m.alreadySeenBlockHashes = make([]common.Hash, 0)
-	m.alreadySeenBlockHashesMutex.Unlock()
-
-	// store 16 ancient block hashes
-	count := 16
-	for block := m.eth.BlockChain().CurrentBlock(); block.ParentHash() != common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000") && count >= 0; count-- {
-		m.alreadySeenBlockHashes = append(m.alreadySeenBlockHashes, block.Hash())
-		block = m.eth.BlockChain().GetBlockByHash(block.ParentHash())
 	}
 
 	// start listener loops
@@ -662,29 +648,6 @@ func (m *MiningMonitor) listenChainHeadLoop() {
 		case ev := <-chainHeadCh:
 			if m.client != nil {
 				//m.legacyClient.NotifyNewChainHead(ev.Block, m.role)
-				// wait until parent has been seen
-			wait:
-				for {
-					select {
-					case <-m.ctx.Done():
-						return
-					default:
-						m.alreadySeenBlockHashesMutex.Lock()
-						for _, seenHash := range m.alreadySeenBlockHashes {
-							if seenHash.Hex() == ev.Block.Hash().Hex() {
-								m.alreadySeenBlockHashesMutex.Unlock()
-								break wait
-							}
-						}
-						m.alreadySeenBlockHashesMutex.Unlock()
-						time.Sleep(100 * time.Millisecond)
-					}
-				}
-				// add to already seen blocks
-				m.alreadySeenBlockHashesMutex.Lock()
-				m.alreadySeenBlockHashes = append(m.alreadySeenBlockHashes, ev.Block.Hash())
-				m.alreadySeenBlockHashesMutex.Unlock()
-
 				err := m.client.NotifyNewChainHead(ev.Block)
 				if err != nil {
 					log.Error("Notify new chain head err", "err", err)
@@ -711,29 +674,6 @@ func (m *MiningMonitor) listenChainSideLoop() {
 		case ev := <-chainSideCh:
 			if m.client != nil {
 				//m.legacyClient.NotifyNewChainSide(ev.Block, m.role)
-				// wait until parent has been seen
-			wait:
-				for {
-					select {
-					case <-m.ctx.Done():
-						return
-					default:
-						m.alreadySeenBlockHashesMutex.Lock()
-						for _, seenHash := range m.alreadySeenBlockHashes {
-							if seenHash.Hex() == ev.Block.Hash().Hex() {
-								m.alreadySeenBlockHashesMutex.Unlock()
-								break wait
-							}
-						}
-						m.alreadySeenBlockHashesMutex.Unlock()
-						time.Sleep(100 * time.Millisecond)
-					}
-				}
-				// add to already seen blocks
-				m.alreadySeenBlockHashesMutex.Lock()
-				m.alreadySeenBlockHashes = append(m.alreadySeenBlockHashes, ev.Block.Hash())
-				m.alreadySeenBlockHashesMutex.Unlock()
-
 				err := m.client.NotifyNewChainSide(ev.Block)
 				if err != nil {
 					log.Error("Notify new chain side err", "err", err)
