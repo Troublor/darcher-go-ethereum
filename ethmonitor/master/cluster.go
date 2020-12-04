@@ -238,7 +238,7 @@ wait:
 				}
 			case rpc.Role_TALKER:
 				log.Debug("talker update", "talkerNum", ev.GetNumber(), "talkerTd", ev.GetTd(), "doerNum", c.GetDoerCurrentHead().GetNumber(), "doerTd", c.GetDoerCurrentHead().GetTd())
-				if c.GetDoerCurrentHead().Td == c.GetDoerCurrentHead().GetTd() {
+				if c.GetDoerCurrentHead().GetTd() == c.GetTalkerCurrentHead().GetTd() {
 					current = ev
 					break wait
 				}
