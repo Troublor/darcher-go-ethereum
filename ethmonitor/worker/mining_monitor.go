@@ -680,7 +680,6 @@ func (m *MiningMonitor) listenChainHeadLoop() {
 						time.Sleep(100 * time.Millisecond)
 					}
 				}
-				time.Sleep(50 * time.Millisecond)
 				// add to already seen blocks
 				m.alreadySeenBlockHashesMutex.Lock()
 				m.alreadySeenBlockHashes = append(m.alreadySeenBlockHashes, ev.Block.Hash())
