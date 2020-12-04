@@ -648,6 +648,7 @@ func (m *MiningMonitor) listenChainHeadLoop() {
 		case ev := <-chainHeadCh:
 			if m.client != nil {
 				//m.legacyClient.NotifyNewChainHead(ev.Block, m.role)
+				time.Sleep(50 * time.Millisecond) // delay a little bit to make sure chain side rpc goes first
 				err := m.client.NotifyNewChainHead(ev.Block)
 				if err != nil {
 					log.Error("Notify new chain head err", "err", err)
