@@ -7,9 +7,7 @@
   "author": "Troublor",
   "license": "ISC",
   "scripts": {
-    "docker:build:ethash": "cd ./scripts/docker/ethash && bash ./build.sh",
-    "docker:build:executables": "cd ./scripts/docker/executables && bash ./build.sh",
-    "docker:build:cluster": "cd ./scripts/docker/cluster && bash ./build.sh",
+    "docker:build": "docker build --progress=plain -t darcherframework/go-ethereum:latest .",
     "build:ethmonitor": "make ethmonitor",
     "build:geth": "make geth",
     "build:evm": "go build -v -i -o ./build/bin/evm ./cmd/evm/",

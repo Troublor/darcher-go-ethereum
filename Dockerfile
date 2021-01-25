@@ -1,16 +1,22 @@
-# Build Geth in a stock Go builder container
-FROM golang:1.15-alpine as builder
+FROM golang:1.14-alpine AS buidler
+
+# context should be darcher-go-ethereum root
 
 RUN apk add --no-cache make gcc musl-dev linux-headers git
+ADD . /darcher-go-ethereum
+RUN cd /darcher-go-ethereum && make geth && make ethmonitor && make evm
 
-ADD . /go-ethereum
-RUN cd /go-ethereum && make geth
-
-# Pull Geth into a second stage deploy alpine container
 FROM alpine:latest
 
-RUN apk add --no-cache ca-certificates
-COPY --from=builder /go-ethereum/build/bin/geth /usr/local/bin/
+COPY --from=buidler /darcher-go-ethereum/build/bin/geth /usr/local/bin/
+COPY --from=buidler /darcher-go-ethereum/build/bin/ethmonitor /usr/local/bin/
+COPY ./entry-*.sh /
+COPY ./env.sh /
+COPY ./blockchain /blockchain
 
-EXPOSE 8545 8546 8547 30303 30303/udp
-ENTRYPOINT ["geth"]
+RUN /usr/local/bin/geth --datadir /blockchain init /blockchain/genesis.json
+RUN /usr/local/bin/geth --datadir /blockchain/doer init /blockchain/genesis.json
+RUN /usr/local/bin/geth --datadir /blockchain/talker init /blockchain/genesis.json
+
+EXPOSE 30303/udp 30303 8545 8546
+ENTRYPOINT ["/bin/sh", "/entry-standalone.sh"]
