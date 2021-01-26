@@ -235,12 +235,12 @@ func (t *Traverser) Revert() error {
 }
 
 func (t *Traverser) Confirm() error {
-	count := (t.tx.executedBlock.Number + common.ConfirmationsCount) - t.cluster.GetDoerCurrentHead().GetNumber()
+	count := (t.tx.executedBlock.Number + t.tx.config.ConfirmationNumber) - t.cluster.GetDoerCurrentHead().GetNumber()
 	doneCh, errCh := t.cluster.MineBlocksWithoutTxAsyncQueued(rpc.Role_DOER, count)
 	select {
 	case <-doneCh:
 		t.tx.WaitForState(rpc.TxState_CONFIRMED)
-		log.Debug("Transaction confirmed", "tx", t.tx.PrettyHash(), "confirmations", common.ConfirmationsCount)
+		log.Debug("Transaction confirmed", "tx", t.tx.PrettyHash(), "confirmations", t.tx.config.ConfirmationNumber)
 	case err := <-errCh:
 		log.Error("Confirm tx failed", "tx", t.tx.PrettyHash(), "err", err)
 		return err

@@ -8,20 +8,25 @@ import (
 	"sync"
 )
 
-type EthMonitor struct {
+type EthMonitorConfig struct {
+	Controller         TxController
+	ConfirmationNumber uint64
+	ServerPort         int
+}
+
+type TraverseMonitor struct {
+	config  EthMonitorConfig
 	cluster *Cluster
 	// the Transaction being traversed lifecycle, represented as a traverser
 	traverserMap map[string]*Traverser
 	// all non-complete traverser are put in the queue and polled based on the dynamic function
 	traverserQueue         *common.DynamicPriorityQueue
 	traverserSubscriptions sync.Map //map[string]*event.SubscriptionScope
-
-	txController TxController
 }
 
-func NewMonitor(txController TxController, config ClusterConfig) *EthMonitor {
-	return &EthMonitor{
-		txController: txController,
+func NewTraverseMonitor(config EthMonitorConfig) *TraverseMonitor {
+	return &TraverseMonitor{
+		config: config,
 
 		cluster: NewCluster(config),
 
@@ -33,22 +38,26 @@ func NewMonitor(txController TxController, config ClusterConfig) *EthMonitor {
 				txs[i] = candidate.(*Traverser).tx
 				m[txs[i]] = candidate.(*Traverser)
 			}
-			selectedTx := txController.SelectTxToTraverse(txs)
+			selectedTx := config.Controller.SelectTxToTraverse(txs)
 			log.Debug("Transaction is selected from pool", "tx", selectedTx.PrettyHash())
 			return m[selectedTx]
 		}),
 	}
 }
 
-func (m *EthMonitor) Start() {
+func (m *TraverseMonitor) Start() error {
 	m.cluster.Start(false)
 	go m.newTxLoop()
 	go m.traverseLoop()
 	go m.txErrorLoop()
-	select {}
+	return nil
 }
 
-func (m *EthMonitor) newTxLoop() {
+func (m *TraverseMonitor) Stop() error {
+	return nil
+}
+
+func (m *TraverseMonitor) newTxLoop() {
 	// listen to new transactions
 	txCh := make(chan *rpc.Tx, common.EventCacheSize)
 	txSub := m.cluster.SubscribeNewTx(txCh)
@@ -86,14 +95,14 @@ func (m *EthMonitor) newTxLoop() {
 		scope.Track(m.cluster.SubscribeNewTx(newTxCh))
 		m.traverserSubscriptions.Store(ev.GetHash(), scope)
 
-		tx := NewTransaction(ev.Hash, ev.Sender, ev.Nonce, newHeadCh, newSideCh, newTxCh)
-		traverser := NewTraverser(m.cluster, tx, m.txController)
+		tx := NewTransaction(ev.Hash, ev.Sender, ev.Nonce, newHeadCh, newSideCh, newTxCh, m.config)
+		traverser := NewTraverser(m.cluster, tx, m.config.Controller)
 		m.traverserMap[tx.Hash()] = traverser
 		m.traverserQueue.Push(traverser)
 	}
 }
 
-func (m *EthMonitor) traverseLoop() {
+func (m *TraverseMonitor) traverseLoop() {
 	for {
 		// fist prune the items in the queue
 		m.traverserQueue.Prune(func(item interface{}) bool {
@@ -118,15 +127,79 @@ func (m *EthMonitor) traverseLoop() {
 /**
 txErrorLoop listen for txError from contractOracleService.txErrorFeed and call controller.TxErrorHook
 */
-func (m *EthMonitor) txErrorLoop() {
+func (m *TraverseMonitor) txErrorLoop() {
 	txErrorCh := make(chan *rpc.TxErrorMsg, 10)
 	txErrorSub := m.cluster.SubscribeTxError(txErrorCh)
 	defer txErrorSub.Unsubscribe()
 	for {
 		txError := <-txErrorCh
 		if txError != nil {
-			m.txController.TxErrorHook(txError)
+			m.config.Controller.TxErrorHook(txError)
 			log.Debug("Transaction error found", "tx", txError.GetHash(), "err", txError.GetDescription())
 		}
+	}
+}
+
+type DeployMonitor struct {
+	cluster *Cluster
+}
+
+func NewDeployMonitor(config EthMonitorConfig) *DeployMonitor {
+	return &DeployMonitor{
+		cluster: NewCluster(config),
+	}
+}
+
+func (m *DeployMonitor) Start() error {
+	log.Info("EthMonitor started", "mode", "deploy")
+	m.cluster.Start(false)
+	go m.newTxLoop()
+	doneCh, errCh := m.cluster.ConnectPeersQueued()
+	select {
+	case <-doneCh:
+	case err := <-errCh:
+		return err
+	}
+	return nil
+}
+
+func (m *DeployMonitor) Stop() error {
+	doneCh, errCh := m.cluster.DisconnectPeersQueued()
+	select {
+	case <-doneCh:
+	case err := <-errCh:
+		return err
+	}
+	log.Info("EthMonitor stopped")
+	return nil
+}
+
+func (m *DeployMonitor) newTxLoop() {
+	txCh := make(chan *rpc.Tx, common.EventCacheSize)
+	txSub := m.cluster.SubscribeNewTx(txCh)
+	defer txSub.Unsubscribe()
+
+	// listen for transactions
+	for {
+		tx := <-txCh
+		if tx.Role == rpc.Role_TALKER {
+			continue
+		}
+
+		doneCh, errCh := m.cluster.ScheduleTxAsyncQueued(rpc.Role_DOER, tx.Hash)
+		go func() {
+			select {
+			case <-doneCh:
+				doneCh, errCh := m.cluster.MineTxAsyncQueued(rpc.Role_DOER, tx.Hash)
+				select {
+				case <-doneCh:
+					log.Info("Mined tx", "hash", tx.Hash)
+				case err := <-errCh:
+					log.Error("Mine tx failed", "hash", tx.Hash, "err", err)
+				}
+			case err := <-errCh:
+				log.Error("Schedule tx failed", "hash", tx.Hash, "err", err)
+			}
+		}()
 	}
 }

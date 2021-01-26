@@ -31,10 +31,6 @@ Cluster will ignore them, and these new transactions will be randomly executed, 
 /**
 ClusterConfig provides some settings of Cluster (e.g. the confirmation number)
 */
-type ClusterConfig struct {
-	ConfirmationNumber uint64
-	ServerPort         int
-}
 
 type ClusterTask = func()
 
@@ -47,7 +43,7 @@ var (
 type Cluster struct {
 	//legacyServer *rpc.EthMonitorServer // the rpc legacyServer that monitor the status of geth nodes
 	server *service.EthMonitorServer
-	config ClusterConfig
+	config EthMonitorConfig
 
 	doerUrl   string
 	talkerUrl string
@@ -62,7 +58,7 @@ the constructor of Cluster, which will set:
 
 
 */
-func NewCluster(config ClusterConfig) *Cluster {
+func NewCluster(config EthMonitorConfig) *Cluster {
 	return &Cluster{
 		config:    config,
 		taskQueue: &queue.Queue{},
@@ -196,7 +192,7 @@ func (c *Cluster) SubscribeTxError(ch chan<- *rpc.TxErrorMsg) event.Subscription
 }
 
 func (c *Cluster) flushTxs() {
-	count := common.ConfirmationsCount + 1
+	count := c.config.ConfirmationNumber + 1
 	targetNum := count + c.GetDoerCurrentHead().GetNumber()
 	log.Debug("Flush txs", "currentNum", c.GetDoerCurrentHead().GetNumber(), "targetNum", targetNum)
 	doneCh, errCh := c.MineBlocksAsyncQueued(rpc.Role_DOER, count)
@@ -284,6 +280,78 @@ func (c *Cluster) waitUntilTxInPool(txHash string, timeout time.Duration) error 
 }
 
 /* integrated async methods */
+func (c *Cluster) connectPeers() (doneCh chan interface{}, errCh chan error) {
+	doneCh = make(chan interface{}, 1)
+	errCh = make(chan error, 1)
+	go func() {
+		adCh, eCh := c.server.P2PNetworkService().AddPeer(rpc.Role_DOER, c.talkerUrl)
+		select {
+		case msg := <-adCh:
+			if msg.GetErr() != rpc.Error_NilErr {
+				log.Error("AddPeer reverse RPC error", "err", msg.GetErr().String())
+				errCh <- RPCErr
+				return
+			}
+			close(doneCh)
+		case err := <-eCh:
+			errCh <- err
+			return
+		}
+	}()
+	return doneCh, errCh
+}
+
+func (c *Cluster) ConnectPeersQueued() (doneCh chan interface{}, errCh chan error) {
+	doneCh = make(chan interface{}, 1)
+	errCh = make(chan error, 1)
+	_ = c.taskQueue.Put(func() {
+		d, e := c.connectPeers()
+		select {
+		case <-d:
+			close(doneCh)
+		case er := <-e:
+			errCh <- er
+		}
+	})
+	return doneCh, errCh
+}
+
+func (c *Cluster) disconnectPeers() (doneCh chan interface{}, errCh chan error) {
+	doneCh = make(chan interface{}, 1)
+	errCh = make(chan error, 1)
+	go func() {
+		rdCh, eCh := c.server.P2PNetworkService().RemovePeer(rpc.Role_DOER, c.talkerUrl)
+		select {
+		case msg := <-rdCh:
+			if msg.GetErr() != rpc.Error_NilErr {
+				log.Error("RemovePeer reverse RPC error", "err", msg.GetErr().String())
+				errCh <- RPCErr
+				return
+			}
+			close(doneCh)
+		case err := <-eCh:
+			errCh <- err
+			return
+		}
+	}()
+	return doneCh, errCh
+}
+
+func (c *Cluster) DisconnectPeersQueued() (doneCh chan interface{}, errCh chan error) {
+	doneCh = make(chan interface{}, 1)
+	errCh = make(chan error, 1)
+	_ = c.taskQueue.Put(func() {
+		d, e := c.disconnectPeers()
+		select {
+		case <-d:
+			close(doneCh)
+		case er := <-e:
+			errCh <- er
+		}
+	})
+	return doneCh, errCh
+}
+
 /**
 Synchronize the cluster and return the latest block in channel
 */
@@ -301,14 +369,9 @@ func (c *Cluster) synchronizeAsync() (doneCh chan *rpc.ChainHead, errCh chan err
 			return
 		}
 
-		adCh, eCh := c.server.P2PNetworkService().AddPeer(rpc.Role_DOER, c.talkerUrl)
+		dCh, eCh := c.connectPeers()
 		select {
-		case msg := <-adCh:
-			if msg.GetErr() != rpc.Error_NilErr {
-				log.Error("AddPeer reverse RPC error", "err", msg.GetErr().String())
-				errCh <- RPCErr
-				return
-			}
+		case <-dCh:
 		case err := <-eCh:
 			errCh <- err
 			return
@@ -320,14 +383,10 @@ func (c *Cluster) synchronizeAsync() (doneCh chan *rpc.ChainHead, errCh chan err
 			errCh <- err
 			return
 		}
-		rdCh, eCh := c.server.P2PNetworkService().RemovePeer(rpc.Role_DOER, c.talkerUrl)
+
+		dCh, eCh = c.disconnectPeers()
 		select {
-		case msg := <-rdCh:
-			if msg.GetErr() != rpc.Error_NilErr {
-				log.Error("RemovePeer reverse RPC error", "err", msg.GetErr().String())
-				errCh <- RPCErr
-				return
-			}
+		case <-dCh:
 		case err := <-eCh:
 			errCh <- err
 			return

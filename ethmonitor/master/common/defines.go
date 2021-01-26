@@ -6,7 +6,6 @@ import (
 
 const EventCacheSize = 10
 
-const ConfirmationsCount uint64 = 1
 const ClusterTaskTimeout = 10 * time.Second
 const ReverseRPCRetryTime = 3 * time.Second
 

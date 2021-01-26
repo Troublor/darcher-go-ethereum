@@ -25,6 +25,8 @@ type Transaction struct {
 	state         rpc.TxState
 
 	stateChangeFeed event.Feed
+
+	config EthMonitorConfig
 }
 
 func NewTransaction(
@@ -34,6 +36,7 @@ func NewTransaction(
 	newHeadCh chan *rpc.ChainHead,
 	newSideCh chan *rpc.ChainSide,
 	newTxCh chan *rpc.Tx,
+	config EthMonitorConfig,
 ) *Transaction {
 	t := &Transaction{
 		hash:      hash,
@@ -43,6 +46,7 @@ func NewTransaction(
 		newHeadCh: newHeadCh,
 		newSideCh: newSideCh,
 		newTxCh:   newTxCh,
+		config:    config,
 	}
 	go t.stateLoop()
 	return t
@@ -91,7 +95,7 @@ func (t *Transaction) stateLoop() {
 				if ev.Hash != t.executedBlock.Hash && ev.Number <= t.executedBlock.Number {
 					t.setState(rpc.TxState_PENDING)
 					return
-				} else if ev.Number-t.executedBlock.Number >= common.ConfirmationsCount {
+				} else if ev.Number-t.executedBlock.Number >= t.config.ConfirmationNumber {
 					t.setState(rpc.TxState_CONFIRMED)
 					return
 				}

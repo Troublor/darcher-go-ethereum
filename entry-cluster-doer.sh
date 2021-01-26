@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-source /env.sh
+source /entry-env.sh
 
 exec "$BIN_DIR"/geth \
   --datadir "$BLOCKCHAIN_DIR"/doer \

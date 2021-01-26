@@ -50,3 +50,7 @@ profile.cov
 
 node_modules/
 scripts/contract_oracles/blockchain/
+blockchain/doer
+blockchain/talker
+blockchain/geth
+blockchain/history
