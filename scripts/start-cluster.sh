@@ -30,6 +30,7 @@ DOER="$BIN/geth \
   --password $BLOCKCHAIN_DIR/keystore/passwords.txt \
   --allow-insecure-unlock \
   --ethmonitor.address localhost:8989 \
+  --evm.analyze \
   --verbosity 3 \
   console
 "

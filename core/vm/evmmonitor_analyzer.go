@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethmonitor/rpc"
 	"math/big"
@@ -74,7 +75,7 @@ func (a *Analyzer) BeforeMessageCall(callType CallType, caller ContractRef, call
 		call = &Create{
 			Call{
 				caller:   caller.Address(),
-				callee:   callee.Address(),
+				callee:   common.Address{},
 				value:    value,
 				input:    input,
 				gasLimit: gas,

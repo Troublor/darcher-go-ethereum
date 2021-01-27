@@ -19,4 +19,5 @@ exec "$BIN_DIR"/geth \
   --password "$BLOCKCHAIN_DIR"/keystore/passwords.txt \
   --allow-insecure-unlock \
   --ethmonitor.address "${ETHMONITOR_ADDR}" \
+  --evm.analyze \
   --verbosity "${VERBOSITY}" \

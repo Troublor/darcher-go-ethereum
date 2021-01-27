@@ -18,4 +18,5 @@ exec "$BIN_DIR"/geth \
   --password "$BLOCKCHAIN_DIR"/keystore/passwords.txt \
   --allow-insecure-unlock \
   --verbosity "${VERBOSITY}" \
-  --miner.mineWhenTx
+  --miner.mineWhenTx \
+  --evm.analyze
