@@ -25,7 +25,7 @@ func newAnalyzer() *Analyzer {
 			NewReentrancyOracle(),
 			NewTimestampDependencyOracle(),
 			NewBlockNumberDependencyOracle(),
-			NewDangerousDelegateCallOracle(),
+			//NewDangerousDelegateCallOracle(),
 		},
 	}
 }
