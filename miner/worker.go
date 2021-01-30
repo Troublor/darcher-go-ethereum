@@ -559,7 +559,7 @@ func (w *worker) taskLoop() {
 					go func() {
 						// reset prev when mining task achieves its target
 						chh := make(chan ethmonitor.Task, 1)
-						sub := w.monitor.SubscribeNewTask(ch)
+						sub := w.monitor.SubscribeNewTask(chh)
 						defer sub.Unsubscribe()
 						select {
 						case <-chh:
@@ -1049,6 +1049,18 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	// Prefer to locally generated uncle
 	commitUncles(w.localUncles)
 	commitUncles(w.remoteUncles)
+
+	// TODO troublor modify starts: check if there are pending transactions. If there are, do not commit an empty block mining task
+	// the rationale behind is that contract vulnerability oracles induce overhead to transaction execution, which may cause transactions fail to commit before a block is mined.
+	pendingTxs, err := w.eth.TxPool().Pending()
+	if err != nil {
+		log.Error("Failed to fetch pending transactions", "err", err)
+		return
+	}
+	if len(pendingTxs) > 0 {
+		noempty = true
+	}
+	// troublor modify ends
 
 	// Create an empty block based on temporary copied state for
 	// sealing in advance without waiting block execution finished.

@@ -54,7 +54,7 @@ func (o *GaslessSendOracle) BeforeMessageCall(callStack *GeneralStack, call Mess
 	if o.shouldCheck {
 		o.sendStack.Push(call)
 		o.shouldCheck = false
-		log.Info("send start")
+		log.Debug("send start")
 	}
 }
 
@@ -64,14 +64,14 @@ func (o *GaslessSendOracle) BeforeOperation(op OpCode, operation *operation, pc 
 		value := ctx.stack.Back(2)
 		inOffset, inSize := ctx.stack.Back(3), ctx.stack.Back(4)
 		args := ctx.memory.GetPtr(int64(inOffset.Uint64()), int64(inSize.Uint64()))
-		log.Info("CALL opcode", "gas", gasLimit, "value", value, "args", len(args))
+		log.Debug("CALL opcode", "gas", gasLimit, "value", value, "args", len(args))
 		tmp, _ := uint256.FromBig(big.NewInt(2300))
 		if !value.IsZero() &&
 			(gasLimit.Cmp(tmp) == 0 || gasLimit.IsZero()) &&
 			len(args) == 0 {
 			o.shouldCheck = true
 			o.pcStack.Push(pc)
-			log.Info("got send")
+			log.Debug("got send")
 		}
 	}
 }
@@ -93,11 +93,11 @@ func (o *GaslessSendOracle) AfterMessageCall(callStack *GeneralStack, call Messa
 				Pc:          o.pcStack.Top().(uint64),
 				Description: fmt.Sprintf("gasless send at %d", o.pcStack.Top().(uint64)),
 			})
-			log.Info("gasless send")
+			log.Debug("gasless send")
 		}
 		o.sendStack.Pop()
 		o.pcStack.Pop()
-		log.Info("send finished")
+		log.Debug("send finished")
 	}
 }
 

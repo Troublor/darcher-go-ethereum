@@ -164,7 +164,7 @@ func (p *MemoryPosition) Propagate(op OpCode, operation *operation, ctx *callCtx
 			})
 			p.size = start.Uint64() - p.offset
 			newPositions = append(newPositions, p)
-		} else if start.Uint64() > p.offset {
+		} else if start.Uint64() >= p.offset {
 			// right overlap
 			p.size = start.Uint64() - p.offset
 			newPositions = append(newPositions, p)
