@@ -43,11 +43,11 @@ func (t *TrivialController) SelectTxToTraverse(txs []*Transaction) (tx *Transact
 }
 
 func (t *TrivialController) TxReceivedHook(txHash string) {
-	return
+	log.Info("Tx received", "hash", txHash)
 }
 
 func (t *TrivialController) OnStateChange(txHash string, fromState rpc.TxState, toState rpc.TxState) {
-	return
+	log.Info("Tx lifecycle state changed", "hash", txHash)
 }
 
 func (t *TrivialController) PivotReachedHook(txHash string, currentState rpc.TxState) (nextState rpc.TxState, suspend bool) {
@@ -55,7 +55,7 @@ func (t *TrivialController) PivotReachedHook(txHash string, currentState rpc.TxS
 }
 
 func (t *TrivialController) TxFinishedHook(txHash string) {
-	return
+	log.Info("Tx finished", "hash", txHash)
 }
 
 func (t *TrivialController) TxResumeHook(txHash string) {
@@ -63,11 +63,11 @@ func (t *TrivialController) TxResumeHook(txHash string) {
 }
 
 func (t *TrivialController) TxErrorHook(txError *rpc.TxErrorMsg) {
-	return
+	log.Error("Failed transaction detected", "tx", txError.Hash, "msg", txError.Description)
 }
 
 func (t *TrivialController) ContractVulnerabilityHook(vulReport *rpc.ContractVulReport) {
-	return
+	log.Error("Contract vulnerability detected", "tx", vulReport.TxHash, "msg", vulReport.Description)
 }
 
 /**
