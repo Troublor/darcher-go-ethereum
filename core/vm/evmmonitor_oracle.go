@@ -174,6 +174,7 @@ func (o *ExceptionDisorderOracle) AfterMessageCall(callStack *GeneralStack, call
 				Description: "exception disorder",
 			})
 		}
+		o.nestedException = false
 	}
 }
 

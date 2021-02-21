@@ -325,6 +325,9 @@ func NewTxExecuteTask(ctx context.Context, eth Ethereum, targetTransaction *type
 		err:               nil,
 	}
 	task.baseTask = newBaseTask(ctx, eth, func(block *types.Block) bool {
+		if task.targetTransaction == nil {
+			return true
+		}
 		if task.err != nil {
 			return true
 		}
@@ -343,6 +346,9 @@ func (t *TxExecuteTask) OnNewMiningWork() {
 }
 
 func (t *TxExecuteTask) IsTxAllowed(txHash common.Hash) bool {
+	if t.targetTransaction == nil {
+		return false
+	}
 	if t.targetTransaction.Hash() == txHash {
 		return true
 	} else {
@@ -363,6 +369,9 @@ func (t *TxExecuteTask) IsTxAllowed(txHash common.Hash) bool {
 }
 
 func (t *TxExecuteTask) OnTxError(txErrors map[common.Hash]error) {
+	if t.targetTransaction == nil {
+		return
+	}
 	if err, ok := txErrors[t.targetTransaction.Hash()]; ok {
 		log.Error("Tx execution error, stopping TxExecute task", "tx", t.targetTransaction.Hash(), "err", err)
 		t.err = err
@@ -370,6 +379,9 @@ func (t *TxExecuteTask) OnTxError(txErrors map[common.Hash]error) {
 }
 
 func (t *TxExecuteTask) String() string {
+	if t.targetTransaction == nil {
+		return "TxExecuteTask(nil)"
+	}
 	return fmt.Sprintf("TxExecuteTask(%s)", PrettifyHash(t.targetTransaction.Hash().String()))
 }
 
