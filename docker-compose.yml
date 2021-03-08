@@ -1,7 +1,7 @@
 version: '3.8'
 services:
   ethmonitor:
-    image: darcherframework/go-ethereum:latest
+    image: darcherframework/go-ethereum:next
     entrypoint: ["/bin/sh", "/entry-cluster-ethmonitor.sh"]
     stop_signal: SIGINT
     stdin_open: true
@@ -14,7 +14,7 @@ services:
       ANALYZER_ADDR: ${ANALYZER_ADDR:-host.docker.internal:1234}
 
   doer:
-    image: darcherframework/go-ethereum:latest
+    image: darcherframework/go-ethereum:next
     entrypoint: ["/bin/sh", "/entry-cluster-doer.sh"]
     stop_signal: SIGINT
     volumes:
@@ -32,7 +32,7 @@ services:
       - "30303:30303/udp"
 
   talker:
-    image: darcherframework/go-ethereum:latest
+    image: darcherframework/go-ethereum:next
     entrypoint: ["/bin/sh", "/entry-cluster-talker.sh"]
     stop_signal: SIGINT
     network_mode: service:doer
