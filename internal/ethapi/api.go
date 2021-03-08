@@ -1038,16 +1038,6 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 		if failed {
 			if result != nil && result.Err != vm.ErrOutOfGas {
 				if len(result.Revert()) > 0 {
-					// TODO troublor modify starts: make estimateGas do not return error when tx is reverted
-					if txScheduler != nil {
-						// shrink gas for a little bit since in this case, tx will definitely fail,
-						// and we need to make sure when this is removed, it does not exceed block gasLimit
-						// this is because block gas limit will slightly change between blocks
-						gas := uint64(float64(hi) * 0.9)
-						// if txScheduler is set, means we are running under ethmonitor
-						return hexutil.Uint64(gas), nil
-					}
-					// TODO troublor modify ends
 					return 0, newRevertError(result)
 				}
 				return 0, result.Err
