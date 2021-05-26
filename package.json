@@ -17,7 +17,8 @@
     "debug:remix": "./build/bin/geth --http --http.corsdomain=\"http://remix.ethereum.org\" --ipcdisable --http.api web3,eth,debug,personal,net --vmdebug --datadir scripts/contract_oracles/blockchain --dev --analyze --monitorport -1 console",
     "test:contract_oracle": "yarn build:evm && mocha --require ts-node/register scripts/contract_oracles/**/*.test.ts",
     "test:go-ethereum": "go test -v ./ethmonitor/... ./miner/... ./core/vm/...",
-    "test": "yarn test:contract_oracle && yarn test:go-ethereum"
+    "test": "yarn test:contract_oracle && yarn test:go-ethereum",
+    "gen:dag": "sh scripts/gen-dag.sh"
   },
   "dependencies": {
     "shelljs": "^0.8.4",
