@@ -12,6 +12,7 @@
     "build:geth": "make geth",
     "build:evm": "go build -v -i -o ./build/bin/evm ./cmd/evm/",
     "build:all": "make all",
+    "build": "yarn build:geth && yarn build:ethmonitor",
     "start:ethmonitor": "./build/bin/ethmonitor",
     "start:geth": "./build/bin/geth",
     "debug:remix": "./build/bin/geth --http --http.corsdomain=\"http://remix.ethereum.org\" --ipcdisable --http.api web3,eth,debug,personal,net --vmdebug --datadir scripts/contract_oracles/blockchain --dev --analyze --monitorport -1 console",
