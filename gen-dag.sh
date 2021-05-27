@@ -2,7 +2,7 @@
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
-GETH_BIN="$DIR"/../build/bin/geth
+GETH_BIN="$DIR"/build/bin/geth
 
 
 if [ $# -le 0 ]; then

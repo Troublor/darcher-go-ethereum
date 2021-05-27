@@ -19,7 +19,7 @@
     "test:contract_oracle": "yarn build:evm && mocha --require ts-node/register scripts/contract_oracles/**/*.test.ts",
     "test:go-ethereum": "go test -v ./ethmonitor/... ./miner/... ./core/vm/...",
     "test": "yarn test:contract_oracle && yarn test:go-ethereum",
-    "gen:dag": "sh scripts/gen-dag.sh"
+    "gen:dag": "sh ./gen-dag.sh"
   },
   "dependencies": {
     "shelljs": "^0.8.4",
